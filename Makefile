@@ -48,7 +48,10 @@ generate:
 
 .PHONY: manifests
 manifests:
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." \
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) \
+		rbac:roleName=code-hub-operator-manager-role \
+		webhook \
+		paths="./api/...;./internal/..." \
 		output:crd:artifacts:config=config/crd/bases \
 		output:rbac:artifacts:config=config/rbac
 

@@ -2,6 +2,8 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.5
   name: codehubruntimes.runtime.project-jelly.io
 spec:
   group: runtime.project-jelly.io
@@ -9,130 +11,277 @@ spec:
     kind: CodeHubRuntime
     listKind: CodeHubRuntimeList
     plural: codehubruntimes
-    singular: codehubruntime
     shortNames:
-      - chr
+    - chr
+    singular: codehubruntime
   scope: Namespaced
   versions:
-    - name: v1alpha1
-      served: true
-      storage: true
-      subresources:
-        status: {}
-      additionalPrinterColumns:
-        - name: Phase
-          type: string
-          jsonPath: .status.phase
-        - name: Ready
-          type: integer
-          jsonPath: .status.readyReplicas
-        - name: Desired
-          type: integer
-          jsonPath: .status.desiredReplicas
-        - name: Age
-          type: date
-          jsonPath: .metadata.creationTimestamp
-      schema:
-        openAPIV3Schema:
-          type: object
-          properties:
-            apiVersion:
-              type: string
-            kind:
-              type: string
-            metadata:
-              type: object
-            spec:
-              type: object
-              required:
-                - image
-                - servicePort
-                - containerPort
-                - idleTimeoutSeconds
-                - minReplicas
-                - maxReplicas
-                - lastUsedKey
-              properties:
-                image:
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .status.readyReplicas
+      name: Ready
+      type: integer
+    - jsonPath: .status.desiredReplicas
+      name: Desired
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: CodeHubRuntime is the Schema for the codehubruntimes API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CodeHubRuntimeSpec defines the desired state of a single
+              runtime instance.
+            properties:
+              containerPort:
+                description: ContainerPort is the port the container listens on.
+                format: int32
+                maximum: 65535
+                minimum: 1
+                type: integer
+              env:
+                additionalProperties:
                   type: string
-                  minLength: 1
-                imagePullPolicy:
-                  type: string
-                  enum: ["Always", "IfNotPresent", "Never"]
-                  default: IfNotPresent
-                servicePort:
-                  type: integer
-                  format: int32
-                  minimum: 1
-                  maximum: 65535
-                containerPort:
-                  type: integer
-                  format: int32
-                  minimum: 1
-                  maximum: 65535
-                idleTimeoutSeconds:
-                  type: integer
-                  format: int64
-                  minimum: 60
-                minReplicas:
-                  type: integer
-                  format: int32
-                  minimum: 0
-                  maximum: 1
-                maxReplicas:
-                  type: integer
-                  format: int32
-                  minimum: 1
-                  maximum: 1
-                lastUsedKey:
-                  type: string
-                  minLength: 1
-                env:
-                  type: object
-                  additionalProperties:
-                    type: string
-                resources:
-                  type: object
-                  x-kubernetes-preserve-unknown-fields: true
-            status:
-              type: object
-              properties:
-                phase:
-                  type: string
-                readyReplicas:
-                  type: integer
-                  format: int32
-                desiredReplicas:
-                  type: integer
-                  format: int32
-                lastScaleAction:
-                  type: string
-                observedGeneration:
-                  type: integer
-                  format: int64
-                lastEvaluatedTime:
-                  type: string
-                  format: date-time
-                idleSince:
-                  type: string
-                  format: date-time
-                conditions:
-                  type: array
-                  items:
+                description: Env are environment variables passed to the container.
+                type: object
+              idleTimeoutSeconds:
+                description: |-
+                  IdleTimeoutSeconds is the time since last use after which the runtime
+                  is considered idle and scaled down to MinReplicas.
+                format: int64
+                minimum: 60
+                type: integer
+              image:
+                description: Image is the container image to run.
+                minLength: 1
+                type: string
+              imagePullPolicy:
+                default: IfNotPresent
+                description: ImagePullPolicy for the container. Defaults to IfNotPresent.
+                enum:
+                - Always
+                - IfNotPresent
+                - Never
+                type: string
+              lastUsedKey:
+                description: |-
+                  LastUsedKey is the key in the external store that holds the last-used
+                  timestamp (Unix epoch seconds) for this runtime.
+                minLength: 1
+                type: string
+              maxReplicas:
+                description: MaxReplicas is the replica count when active. Must be
+                  1 in v1.
+                format: int32
+                maximum: 1
+                minimum: 1
+                type: integer
+              minReplicas:
+                description: MinReplicas is the replica count when idle. Must be 0
+                  or 1 in v1.
+                format: int32
+                maximum: 1
+                minimum: 0
+                type: integer
+              resources:
+                description: Resources are the container resource requirements.
+                properties:
+                  claims:
+                    description: |-
+                      Claims lists the names of resources, defined in spec.resourceClaims,
+                      that are used by this container.
+
+                      This is an alpha field and requires enabling the
+                      DynamicResourceAllocation feature gate.
+
+                      This field is immutable. It can only be set for containers.
+                    items:
+                      description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                      properties:
+                        name:
+                          description: |-
+                            Name must match the name of one entry in pod.spec.resourceClaims of
+                            the Pod where this field is used. It makes that resource available
+                            inside a container.
+                          type: string
+                        request:
+                          description: |-
+                            Request is the name chosen for a request in the referenced claim.
+                            If empty, everything from the claim is made available, otherwise
+                            only the result of this request.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  limits:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: |-
+                      Limits describes the maximum amount of compute resources allowed.
+                      More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                     type: object
-                    required: [type, status, lastTransitionTime, reason, message]
-                    properties:
-                      type:
-                        type: string
-                      status:
-                        type: string
-                      observedGeneration:
-                        type: integer
-                        format: int64
-                      lastTransitionTime:
-                        type: string
-                        format: date-time
-                      reason:
-                        type: string
-                      message:
-                        type: string
+                  requests:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: |-
+                      Requests describes the minimum amount of compute resources required.
+                      If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                      otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                      More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                    type: object
+                type: object
+              servicePort:
+                description: ServicePort is the port the Service exposes.
+                format: int32
+                maximum: 65535
+                minimum: 1
+                type: integer
+            required:
+            - containerPort
+            - idleTimeoutSeconds
+            - image
+            - lastUsedKey
+            - maxReplicas
+            - minReplicas
+            - servicePort
+            type: object
+          status:
+            description: |-
+              CodeHubRuntimeStatus is the observed state of a CodeHubRuntime.
+              Status holds only summary values; the authoritative last-used timestamp
+              lives in the external store, never here.
+            properties:
+              conditions:
+                description: Conditions represent the latest available observations
+                  of state.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              desiredReplicas:
+                description: DesiredReplicas is the replica count the operator last
+                  applied.
+                format: int32
+                type: integer
+              idleSince:
+                description: IdleSince is the time at which the runtime first became
+                  idle. Nil while active.
+                format: date-time
+                type: string
+              lastEvaluatedTime:
+                description: LastEvaluatedTime is when the controller last ran reconcile
+                  for this CR.
+                format: date-time
+                type: string
+              lastScaleAction:
+                description: |-
+                  LastScaleAction records what the operator did on its most recent
+                  reconcile: ScaleToOne, ScaleToZero, or NoChange.
+                type: string
+              observedGeneration:
+                description: ObservedGeneration is the .metadata.generation the controller
+                  last acted on.
+                format: int64
+                type: integer
+              phase:
+                description: Phase is a high-level summary of the runtime state.
+                type: string
+              readyReplicas:
+                description: ReadyReplicas is the number of ready pods observed on
+                  the Deployment.
+                format: int32
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
