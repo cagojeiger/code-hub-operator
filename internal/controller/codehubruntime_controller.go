@@ -157,7 +157,7 @@ func (r *CodeHubRuntimeReconciler) ensureService(ctx context.Context, cr *runtim
 	candidate := buildService(cr)
 	if servicePortsEqual(existing.Spec.Ports, candidate.Spec.Ports) &&
 		selectorsEqual(existing.Spec.Selector, candidate.Spec.Selector) &&
-		selectorsEqual(existing.ObjectMeta.Labels, candidate.ObjectMeta.Labels) &&
+		selectorsEqual(existing.Labels, candidate.Labels) &&
 		metav1.IsControlledBy(existing, cr) {
 		return nil
 	}
@@ -165,7 +165,7 @@ func (r *CodeHubRuntimeReconciler) ensureService(ctx context.Context, cr *runtim
 	// preserved because we only mutate the fields we own.
 	existing.Spec.Ports = candidate.Spec.Ports
 	existing.Spec.Selector = candidate.Spec.Selector
-	existing.ObjectMeta.Labels = candidate.ObjectMeta.Labels
+	existing.Labels = candidate.Labels
 	// Ensure ownerRef is reconciled as part of service drift recovery.
 	if err := controllerutil.SetControllerReference(cr, existing, r.Scheme); err != nil {
 		return err
@@ -219,7 +219,7 @@ func (r *CodeHubRuntimeReconciler) ensureDeployment(
 	desiredReplicas := desired
 	existing.Spec.Replicas = &desiredReplicas
 	existing.Spec.Template = candidate.Spec.Template
-	existing.ObjectMeta.Labels = candidate.ObjectMeta.Labels
+	existing.Labels = candidate.Labels
 	// Make sure ownerRef is set (idempotent on same controller).
 	if err := controllerutil.SetControllerReference(cr, existing, r.Scheme); err != nil {
 		return "", 0, err
