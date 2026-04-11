@@ -1,0 +1,16 @@
+domain: project-jelly.io
+layout:
+- go.kubebuilder.io/v4
+projectName: code-hub-operator
+repo: github.com/cagojeiger/code-hub-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: project-jelly.io
+  group: runtime
+  kind: CodeHubRuntime
+  path: github.com/cagojeiger/code-hub-operator/api/v1alpha1
+  version: v1alpha1
+version: "3"
