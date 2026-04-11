@@ -9,6 +9,12 @@ on:
 permissions:
   contents: read
 
+# golangci-lint-action does not ship a Node.js 24 runtime yet (as of v8).
+# Opt in at the workflow level to silence the deprecation warning without
+# pinning an older action version.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   # ── Tier 0 ─────────────────────────────────────────────────────────────────
   lint:
