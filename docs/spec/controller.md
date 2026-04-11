@@ -151,4 +151,4 @@ func (realClock) Now() time.Time { return time.Now() }
 - **Admission webhook**: validation은 CRD OpenAPI schema + `validateForDeployment()`로만.
 - **Multi-Kind reconciler**: 1 controller = 1 Kind 원칙을 지킨다.
 - **In-place resize / HPA 연동 / VPA**: v1beta1 이후 검토.
-- **Events 기록**: RBAC은 열려 있지만 v1은 `EventRecorder`를 아직 쓰지 않는다.
+- **Events 기록**: 스케일 액션(`ScaleToOne`, `ScaleToZero`)과 일반 reconcile 에러를 Kubernetes Event로 기록한다.

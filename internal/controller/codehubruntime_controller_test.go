@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -394,6 +395,27 @@ func TestReconcile_ResourcesUpdatePropagates(t *testing.T) {
 	require.Equal(t, "200m", reqCPU.String())
 	require.Equal(t, "128Mi", reqMem.String())
 	require.Equal(t, "500m", limCPU.String())
+}
+
+func TestReconcile_EmitsScaleEvents(t *testing.T) {
+	cr := sampleRuntime()
+	env := newTestEnv(t, cr)
+	rec := record.NewFakeRecorder(10)
+	env.rec.Recorder = rec
+
+	env.reconcile(cr.Name, cr.Namespace)
+
+	var evt string
+	require.Eventually(t, func() bool {
+		select {
+		case evt = <-rec.Events:
+			return true
+		default:
+			return false
+		}
+	}, time.Second, 10*time.Millisecond)
+	require.Contains(t, evt, eventReasonScaledUp)
+	require.Contains(t, evt, "Scaled deployment to 1 replica(s)")
 }
 
 func TestReconcile_ServiceMetadataDriftIsReconciled(t *testing.T) {

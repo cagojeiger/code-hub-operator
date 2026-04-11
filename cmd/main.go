@@ -70,9 +70,10 @@ func main() {
 	lastUsedStore := store.NewRedisStore(redisClient)
 
 	if err := (&controller.CodeHubRuntimeReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Store:  lastUsedStore,
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Store:    lastUsedStore,
+		Recorder: mgr.GetEventRecorderFor("codehubruntime-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CodeHubRuntime")
 		os.Exit(1)

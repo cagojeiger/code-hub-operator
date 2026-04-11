@@ -100,7 +100,6 @@ type CodeHubRuntimeStatus struct {
 
 // Phase values for CodeHubRuntimeStatus.Phase.
 const (
-	PhasePending    = "Pending"
 	PhaseRunning    = "Running"
 	PhaseIdle       = "Idle"
 	PhaseScaledDown = "ScaledDown"
@@ -117,8 +116,6 @@ const (
 // Condition type values.
 const (
 	ConditionReady                  = "Ready"
-	ConditionIdle                   = "Idle"
-	ConditionScaledDown             = "ScaledDown"
 	ConditionExternalStoreReachable = "ExternalStoreReachable"
 )
 
