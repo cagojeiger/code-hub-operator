@@ -34,8 +34,8 @@ func TestBuildDeployment_BasicShape(t *testing.T) {
 	require.Equal(t, wantSelector, dep.Spec.Selector.MatchLabels)
 	require.Equal(t, wantSelector, dep.Spec.Template.Labels)
 
-	require.Contains(t, dep.ObjectMeta.Labels, "app.kubernetes.io/managed-by")
-	require.Equal(t, "code-hub-operator", dep.ObjectMeta.Labels["app.kubernetes.io/managed-by"])
+	require.Contains(t, dep.Labels, "app.kubernetes.io/managed-by")
+	require.Equal(t, "code-hub-operator", dep.Labels["app.kubernetes.io/managed-by"])
 
 	require.Len(t, dep.Spec.Template.Spec.Containers, 1)
 	c := dep.Spec.Template.Spec.Containers[0]
