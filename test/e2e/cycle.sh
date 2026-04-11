@@ -219,12 +219,18 @@ print(len(alive))
 done
 [[ "${POD_COUNT}" == "0" ]] || fail "expected 0 active pods after scale-down, got ${POD_COUNT}"
 
-# Scale-down event should be present.
-if ! "${KC[@]}" -n "${APP_NS}" get events --field-selector=reason=ScalingReplicaSet \
-    -o jsonpath='{range .items[*]}{.message}{"\n"}{end}' \
-    | grep -q "from 1 to 0"; then
-  fail "no 'Scaled down from 1 to 0' event recorded"
-fi
+# Scale-down event should be present. Poll briefly because event
+# write is async to the Deployment spec update.
+scale_down_seen=0
+for _ in $(seq 1 15); do
+  if "${KC[@]}" -n "${APP_NS}" get events -o jsonpath='{range .items[*]}{.message}{"\n"}{end}' \
+      | grep -q "Scaled down replica set .* from 1 to 0"; then
+    scale_down_seen=1
+    break
+  fi
+  sleep 1
+done
+[[ "${scale_down_seen}" == "1" ]] || fail "no 'Scaled down ... from 1 to 0' event recorded"
 
 # Operator pod must still be Running.
 OP_READY=$("${KC[@]}" -n "${OPERATOR_NS}" get pods \
