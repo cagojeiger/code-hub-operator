@@ -81,7 +81,9 @@ type testEnv struct {
 | 10 | `TestReconcile_InvalidSpecStopsWithoutRequeueLoop` | Image="" | Phase=Error, `ctrl.Result{}` (RequeueAfter 없음) |
 | 11 | `TestReconcile_IdempotentUpdate` | 2회 연속 reconcile | Deployment/Service ResourceVersion 불변 |
 | 12 | `TestReconcile_ImageUpdatePropagates` | CR 이미지 변경 | Deployment template 이미지 반영 |
-| 13 | `TestReconcile_ClockAdvanceTriggersIdle` | 시계 +31m | 자동 idle 전환 |
+| 13 | `TestReconcile_ResourcesUpdatePropagates` | CR resources 변경 | Deployment template resources 반영 |
+| 14 | `TestReconcile_ServiceMetadataDriftIsReconciled` | Service labels/ownerRef 드리프트 | labels 복구 + ownerRef 복구 |
+| 15 | `TestReconcile_ClockAdvanceTriggersIdle` | 시계 +31m | 자동 idle 전환 |
 
 ---
 
@@ -321,6 +323,6 @@ require.Equal(t, int32(0), *env.getDeployment(...).Spec.Replicas)
 
 ## 메트릭
 
-현재 `internal/controller/` 패키지 전체 실행 시간은 약 **0.06초** (`go test`). 13개 reconcile 테스트 모두 밀리초 단위.
+현재 `internal/controller/` 패키지 전체 실행 시간은 약 **0.06초** (`go test`). reconcile 테스트는 모두 밀리초 단위.
 
 `go test ./... -race` 기준으로도 전체 프로젝트가 1초 이내에 끝난다. CI에서 매 PR마다 돌려도 병목이 아니다.

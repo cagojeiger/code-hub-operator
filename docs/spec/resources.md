@@ -96,13 +96,13 @@ spec:
 - 각 컨테이너의 `Image`, `ImagePullPolicy`
 - `ContainerPort`, `Protocol`
 - `Env` 슬라이스 (이미 정렬돼 있으므로 index 비교로 충분)
+- `Resources` (`requests`/`limits`)
 
 **비교하지 않는 필드** (API 서버가 기본값을 채우는 것들):
 
 - `terminationMessagePath`, `terminationMessagePolicy`
 - `ImagePullPolicy` default fill
 - `RestartPolicy`, `DNSPolicy`, `SchedulerName` 등 `PodSpec` defaults
-- `Resources` (필요해지면 추가 예정 — v1은 변경 감지 범위에서 제외)
 
 "관리하는 필드만 비교한다" 원칙을 지켜 **update 충돌과 churn을 최소화**한다.
 

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -364,6 +365,56 @@ func TestReconcile_ImageUpdatePropagates(t *testing.T) {
 
 	dep := env.getDeployment(cr.Name, cr.Namespace)
 	require.Equal(t, "ghcr.io/acme/demo:0.2.0", dep.Spec.Template.Spec.Containers[0].Image)
+}
+
+func TestReconcile_ResourcesUpdatePropagates(t *testing.T) {
+	cr := sampleRuntime()
+	env := newTestEnv(t, cr)
+
+	env.reconcile(cr.Name, cr.Namespace)
+
+	fresh := env.getCR(cr.Name, cr.Namespace)
+	fresh.Spec.Resources = &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("200m"),
+			corev1.ResourceMemory: resource.MustParse("128Mi"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU: resource.MustParse("500m"),
+		},
+	}
+	require.NoError(t, env.client.Update(context.Background(), fresh))
+
+	env.reconcile(cr.Name, cr.Namespace)
+
+	dep := env.getDeployment(cr.Name, cr.Namespace)
+	got := dep.Spec.Template.Spec.Containers[0].Resources
+	reqCPU := got.Requests[corev1.ResourceCPU]
+	reqMem := got.Requests[corev1.ResourceMemory]
+	limCPU := got.Limits[corev1.ResourceCPU]
+	require.Equal(t, "200m", reqCPU.String())
+	require.Equal(t, "128Mi", reqMem.String())
+	require.Equal(t, "500m", limCPU.String())
+}
+
+func TestReconcile_ServiceMetadataDriftIsReconciled(t *testing.T) {
+	cr := sampleRuntime()
+	env := newTestEnv(t, cr)
+
+	env.reconcile(cr.Name, cr.Namespace)
+
+	svc := env.getService(cr.Name, cr.Namespace)
+	svc.Labels = map[string]string{"unexpected": "label"}
+	svc.OwnerReferences = nil
+	require.NoError(t, env.client.Update(context.Background(), svc))
+
+	env.reconcile(cr.Name, cr.Namespace)
+
+	reconciled := env.getService(cr.Name, cr.Namespace)
+	require.Equal(t, objectLabels(cr), reconciled.Labels)
+	require.Len(t, reconciled.OwnerReferences, 1, "service ownerRef drift should be repaired")
+	require.Equal(t, cr.Name, reconciled.OwnerReferences[0].Name)
+	require.Equal(t, "CodeHubRuntime", reconciled.OwnerReferences[0].Kind)
 }
 
 func TestReconcile_ClockAdvanceTriggersIdle(t *testing.T) {

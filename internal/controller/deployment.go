@@ -6,6 +6,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	runtimev1alpha1 "github.com/cagojeiger/code-hub-operator/api/v1alpha1"
@@ -124,6 +125,9 @@ func podTemplateEquivalent(a, b *appsv1.Deployment) bool {
 			}
 		}
 		if !envSlicesEqual(ac[i].Env, bc[i].Env) {
+			return false
+		}
+		if !apiequality.Semantic.DeepEqual(ac[i].Resources, bc[i].Resources) {
 			return false
 		}
 	}

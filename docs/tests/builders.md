@@ -20,7 +20,7 @@
 | 4 | `TestBuildDeployment_ReplicasRespected` | `buildDeployment(cr, 0)`·`buildDeployment(cr, 1)` replicas 전달 |
 | 5 | `TestBuildDeployment_ResourcesApplied` | Spec.Resources가 컨테이너 requests/limits에 들어감 |
 | 6 | `TestValidateForDeployment` | 테이블 기반 5케이스: ok, 이미지 없음, container port 0, service port 0, max < min |
-| 7 | `TestPodTemplateEquivalent` | 같은 CR에서 replicas만 다를 때 equivalent, 이미지/env 변경 시 not equivalent |
+| 7 | `TestPodTemplateEquivalent` | 같은 CR에서 replicas만 다를 때 equivalent, 이미지/env/resources 변경 시 not equivalent |
 
 ## 세부
 
