@@ -44,12 +44,11 @@ type CodeHubRuntimeReconciler struct {
 	Clock Clock
 }
 
-// +kubebuilder:rbac:groups=runtime.project-jelly.io,resources=codehubruntimes,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=runtime.project-jelly.io,resources=codehubruntimes/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=runtime.project-jelly.io,resources=codehubruntimes/finalizers,verbs=update
-// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=runtime.project-jelly.io,resources=codehubruntimes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=runtime.project-jelly.io,resources=codehubruntimes/status,verbs=get;update
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update
+// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update
+// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile drives a CodeHubRuntime towards its desired state.
 //

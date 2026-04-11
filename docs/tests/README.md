@@ -17,7 +17,7 @@
 │ Tier 3: E2E on kind (real node + kubelet + network)            │
 │  - 속도: ~2–5 min  커버: 이미지 pull / 트래픽 / 풀 사이클      │
 │  - 실행: make e2e-kind  (또는 test/e2e/cycle.sh)               │
-│  - CI: main 푸시 / nightly / `e2e` 라벨 붙은 PR                │
+│  - CI: main 푸시 / workflow_dispatch / `e2e` 라벨 PR           │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -182,6 +182,6 @@ kind delete cluster --name codehub-dev
 | `lint` | - | every PR | <30s |
 | `unit` | Tier 1 | every PR | <30s |
 | `envtest` | Tier 2 | every PR | ~1min |
-| `e2e-kind` | Tier 3 | main push / nightly | 3–6min |
+| `e2e-kind` | Tier 3 | main push / workflow_dispatch / PR with `e2e` label | 3–6min |
 
 자세한 workflow YAML 은 `.github/workflows/ci.yml` 참고.
