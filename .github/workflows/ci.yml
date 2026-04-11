@@ -67,6 +67,12 @@ jobs:
           go-version: '1.23'
           cache: true
       - name: Install setup-envtest
+        # setup-envtest@latest pulls in a module requiring Go >= 1.26 as of
+        # 2026-04. actions/setup-go@v6 defaults GOTOOLCHAIN=local, which
+        # refuses auto-downloads. Override to auto for just this step so Go
+        # fetches the needed toolchain on demand.
+        env:
+          GOTOOLCHAIN: auto
         run: go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
       - name: Fetch envtest binaries
         id: envtest
