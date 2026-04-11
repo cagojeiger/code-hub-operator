@@ -157,7 +157,9 @@ func (r *CodeHubRuntimeReconciler) ensureService(ctx context.Context, cr *runtim
 
 	candidate := buildService(cr)
 	if servicePortsEqual(existing.Spec.Ports, candidate.Spec.Ports) &&
-		selectorsEqual(existing.Spec.Selector, candidate.Spec.Selector) {
+		selectorsEqual(existing.Spec.Selector, candidate.Spec.Selector) &&
+		selectorsEqual(existing.ObjectMeta.Labels, candidate.ObjectMeta.Labels) &&
+		metav1.IsControlledBy(existing, cr) {
 		return nil
 	}
 	// Update in place. ClusterIP and other API-server-assigned fields are
@@ -165,6 +167,10 @@ func (r *CodeHubRuntimeReconciler) ensureService(ctx context.Context, cr *runtim
 	existing.Spec.Ports = candidate.Spec.Ports
 	existing.Spec.Selector = candidate.Spec.Selector
 	existing.ObjectMeta.Labels = candidate.ObjectMeta.Labels
+	// Ensure ownerRef is reconciled as part of service drift recovery.
+	if err := controllerutil.SetControllerReference(cr, existing, r.Scheme); err != nil {
+		return err
+	}
 	return r.Update(ctx, existing)
 }
 

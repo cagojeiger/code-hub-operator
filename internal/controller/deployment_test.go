@@ -202,4 +202,14 @@ func TestPodTemplateEquivalent(t *testing.T) {
 	envChanged.Spec.Env = map[string]string{"A": "2"}
 	d := buildDeployment(envChanged, 1)
 	require.False(t, podTemplateEquivalent(a, d))
+
+	// Resources change should break equivalence.
+	resChanged := base.DeepCopy()
+	resChanged.Spec.Resources = &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU: resource.MustParse("250m"),
+		},
+	}
+	e := buildDeployment(resChanged, 1)
+	require.False(t, podTemplateEquivalent(a, e))
 }
