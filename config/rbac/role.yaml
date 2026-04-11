@@ -1,0 +1,24 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: code-hub-operator-manager-role
+rules:
+  - apiGroups: ["runtime.project-jelly.io"]
+    resources: ["codehubruntimes"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["runtime.project-jelly.io"]
+    resources: ["codehubruntimes/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["runtime.project-jelly.io"]
+    resources: ["codehubruntimes/finalizers"]
+    verbs: ["update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]

@@ -1,0 +1,138 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: codehubruntimes.runtime.project-jelly.io
+spec:
+  group: runtime.project-jelly.io
+  names:
+    kind: CodeHubRuntime
+    listKind: CodeHubRuntimeList
+    plural: codehubruntimes
+    singular: codehubruntime
+    shortNames:
+      - chr
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Ready
+          type: integer
+          jsonPath: .status.readyReplicas
+        - name: Desired
+          type: integer
+          jsonPath: .status.desiredReplicas
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              required:
+                - image
+                - servicePort
+                - containerPort
+                - idleTimeoutSeconds
+                - minReplicas
+                - maxReplicas
+                - lastUsedKey
+              properties:
+                image:
+                  type: string
+                  minLength: 1
+                imagePullPolicy:
+                  type: string
+                  enum: ["Always", "IfNotPresent", "Never"]
+                  default: IfNotPresent
+                servicePort:
+                  type: integer
+                  format: int32
+                  minimum: 1
+                  maximum: 65535
+                containerPort:
+                  type: integer
+                  format: int32
+                  minimum: 1
+                  maximum: 65535
+                idleTimeoutSeconds:
+                  type: integer
+                  format: int64
+                  minimum: 60
+                minReplicas:
+                  type: integer
+                  format: int32
+                  minimum: 0
+                  maximum: 1
+                maxReplicas:
+                  type: integer
+                  format: int32
+                  minimum: 1
+                  maximum: 1
+                lastUsedKey:
+                  type: string
+                  minLength: 1
+                env:
+                  type: object
+                  additionalProperties:
+                    type: string
+                resources:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                readyReplicas:
+                  type: integer
+                  format: int32
+                desiredReplicas:
+                  type: integer
+                  format: int32
+                lastScaleAction:
+                  type: string
+                observedGeneration:
+                  type: integer
+                  format: int64
+                lastEvaluatedTime:
+                  type: string
+                  format: date-time
+                idleSince:
+                  type: string
+                  format: date-time
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required: [type, status, lastTransitionTime, reason, message]
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      observedGeneration:
+                        type: integer
+                        format: int64
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+                      reason:
+                        type: string
+                      message:
+                        type: string
