@@ -17,6 +17,7 @@
 | `runtime.project-jelly.io` | `codehubruntimes` | `get;list;watch` | 주 리소스 watch/조회 |
 | `runtime.project-jelly.io` | `codehubruntimes/status` | `get;update` | status 서브리소스 업데이트 |
 | `apps` | `deployments` | `get;list;watch;create;update` | 자식 Deployment 생성·스케일 |
+| `""` (core) | `events` | `create;patch` | 스케일/에러 이벤트 기록 |
 | `""` (core) | `services` | `get;list;watch;create;update` | 자식 Service 생성·갱신 |
 | `coordination.k8s.io` | `leases` | `get;list;watch;create;update;patch;delete` | leader election lock |
 
@@ -40,6 +41,9 @@ rules:
   - apiGroups: ["apps"]
     resources: ["deployments"]
     verbs: ["get","list","watch","create","update"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create","patch"]
   - apiGroups: [""]
     resources: ["services"]
     verbs: ["get","list","watch","create","update"]
@@ -94,6 +98,5 @@ subjects:
 ## v1에 **없는** 것
 
 - Redis 연결 시크릿 (`secrets` 권한): 현재는 CLI flag/env로만 주입. Secret 기반 구성은 필요할 때 추가.
-- `events` 권한: v1은 `EventRecorder`를 쓰지 않으므로 미포함.
 - `codehubruntimes/finalizers` 권한: v1은 finalizer를 쓰지 않으므로 미포함.
 - 멀티 테넌트 네임스페이스 격리 (RoleBinding 기반): v1은 ClusterRole 전역 관리만.

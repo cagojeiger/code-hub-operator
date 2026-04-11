@@ -59,7 +59,7 @@ CRD manifest: `config/crd/bases/runtime.project-jelly.io_codehubruntimes.yaml`
 
 | 필드 | 타입 | 의미 |
 |---|---|---|
-| `phase` | `string` | `Pending \| Running \| Idle \| ScaledDown \| Error` |
+| `phase` | `string` | `Running \| Idle \| ScaledDown \| Error` |
 | `readyReplicas` | `int32` | Deployment `status.readyReplicas` 관측값 |
 | `desiredReplicas` | `int32` | 오퍼레이터가 마지막으로 적용한 replicas |
 | `lastScaleAction` | `string` | `ScaleToOne \| ScaleToZero \| NoChange` |
@@ -78,10 +78,9 @@ CRD manifest: `config/crd/bases/runtime.project-jelly.io_codehubruntimes.yaml`
 `api/v1alpha1/codehubruntime_types.go` 내 상수:
 
 ```go
-PhasePending    = "Pending"
 PhaseRunning    = "Running"
-PhaseIdle       = "Idle"      // min=max=1이면서 idle 판정일 때
-PhaseScaledDown = "ScaledDown" // idle 판정이고 desired=0일 때
+PhaseIdle       = "Idle"
+PhaseScaledDown = "ScaledDown"
 PhaseError      = "Error"
 ```
 
@@ -97,10 +96,8 @@ ScaleActionNoChange    = "NoChange"
 
 | Type | True 의미 | False 의미 |
 |---|---|---|
-| `Ready` | `readyReplicas >= desiredReplicas && desired > 0` | desired=0 또는 reconcile 에러 |
+| `Ready` | `readyReplicas >= desiredReplicas && desired > 0` | desired=0, reconcile 에러, 또는 아직 준비 중 |
 | `ExternalStoreReachable` | 직전 reconcile에서 store.Get 성공 | store 에러 발생 |
-
-v1에 아직 **사용하지 않는** 상수(`ConditionIdle`, `ConditionScaledDown`)도 정의돼 있지만 이는 v1beta1 확장 여지를 열어둔 것이다.
 
 ## 샘플 CR
 

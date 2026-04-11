@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -24,6 +25,12 @@ import (
 // requeueAfter is the periodic re-evaluation interval. Each reconcile also
 // schedules its next run after this duration even when nothing changed.
 const requeueAfter = 30 * time.Second
+
+const (
+	eventReasonScaledUp       = "ScaledUp"
+	eventReasonScaledDown     = "ScaledDown"
+	eventReasonReconcileError = "ReconcileError"
+)
 
 // Clock is an injectable time source. Tests provide a fake clock; production
 // uses the real one.
@@ -40,6 +47,8 @@ type CodeHubRuntimeReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Store  store.LastUsedStore
+	// Recorder is optional; nil disables Event recording.
+	Recorder record.EventRecorder
 	// Clock is optional; nil means use the real clock.
 	Clock Clock
 }
@@ -48,6 +57,7 @@ type CodeHubRuntimeReconciler struct {
 // +kubebuilder:rbac:groups=runtime.project-jelly.io,resources=codehubruntimes/status,verbs=get;update
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile drives a CodeHubRuntime towards its desired state.
@@ -299,6 +309,13 @@ func (r *CodeHubRuntimeReconciler) writeSuccessStatus(
 		Reason: "Reachable",
 	})
 
+	switch scaleAction {
+	case runtimev1alpha1.ScaleActionScaleToOne:
+		r.recordNormal(cr, eventReasonScaledUp, "Scaled deployment to %d replica(s)", desired)
+	case runtimev1alpha1.ScaleActionScaleToZero:
+		r.recordNormal(cr, eventReasonScaledDown, "Scaled deployment to %d replica(s)", desired)
+	}
+
 	_ = r.Status().Update(ctx, cr)
 }
 
@@ -343,8 +360,23 @@ func (r *CodeHubRuntimeReconciler) writeErrorStatus(
 		Reason:  "ReconcileError",
 		Message: msg,
 	})
+	r.recordWarning(cr, eventReasonReconcileError, msg)
 
 	_ = r.Status().Update(ctx, cr)
+}
+
+func (r *CodeHubRuntimeReconciler) recordNormal(cr *runtimev1alpha1.CodeHubRuntime, reason, msg string, args ...any) {
+	if r.Recorder == nil {
+		return
+	}
+	r.Recorder.Eventf(cr, corev1.EventTypeNormal, reason, msg, args...)
+}
+
+func (r *CodeHubRuntimeReconciler) recordWarning(cr *runtimev1alpha1.CodeHubRuntime, reason, msg string, args ...any) {
+	if r.Recorder == nil {
+		return
+	}
+	r.Recorder.Eventf(cr, corev1.EventTypeWarning, reason, msg, args...)
 }
 
 // SetupWithManager registers this reconciler with the manager and wires
