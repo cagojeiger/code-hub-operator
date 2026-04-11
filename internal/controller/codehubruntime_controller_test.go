@@ -27,7 +27,6 @@ type fixedClock struct{ t time.Time }
 
 func (c *fixedClock) Now() time.Time          { return c.t }
 func (c *fixedClock) advance(d time.Duration) { c.t = c.t.Add(d) }
-func (c *fixedClock) set(tt time.Time)        { c.t = tt }
 
 type testEnv struct {
 	t      *testing.T
