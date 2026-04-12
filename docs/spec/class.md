@@ -19,7 +19,7 @@
 | Group | `codehub.project-jelly.io` |
 | Version | `v1alpha1` |
 | Kind | `CodeHubWorkspaceClass` |
-| ShortName | `chwsc` |
+| ShortName | `chwc` |
 | Scope | **Cluster** |
 
 ## Spec 필드 (모두 optional)
