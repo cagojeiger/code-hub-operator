@@ -6,17 +6,17 @@ store (Redis).
 
 ## CRD
 
-- Group / Version: `runtime.project-jelly.io/v1alpha1`
-- Kind: `CodeHubRuntime` (short: `chr`)
+- Group / Version: `codehub.project-jelly.io/v1alpha1`
+- Kind: `CodeHubWorkspace` (short: `chr`)
 - Scope: Namespaced
 
-Each `CodeHubRuntime` owns one `Deployment` + one `Service`. The controller
+Each `CodeHubWorkspace` owns one `Deployment` + one `Service`. The controller
 scales the Deployment to `maxReplicas` (1) when the runtime has been used
 within `idleTimeoutSeconds`, and to `minReplicas` (0) otherwise. A missing
 last-used value is treated as active so freshly-created runtimes are not
 scaled down on their first reconcile.
 
-See `config/samples/runtime_v1alpha1_codehubruntime.yaml` for an example CR.
+See `config/samples/runtime_v1alpha1_codehubworkspace.yaml` for an example CR.
 
 ## Build / test
 
@@ -35,7 +35,7 @@ Tests use `sigs.k8s.io/controller-runtime/pkg/client/fake` and an in-memory
 make install                                                       # install CRD
 make docker-build docker-push IMG=<your-registry>/code-hub-operator:dev
 make deploy                                                        # apply rbac + manager
-kubectl apply -f config/samples/runtime_v1alpha1_codehubruntime.yaml
+kubectl apply -f config/samples/runtime_v1alpha1_codehubworkspace.yaml
 ```
 
 Runtime state:

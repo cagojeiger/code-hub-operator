@@ -5,8 +5,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// CodeHubRuntimeSpec defines the desired state of a single runtime instance.
-type CodeHubRuntimeSpec struct {
+// CodeHubWorkspaceSpec defines the desired state of a single runtime instance.
+type CodeHubWorkspaceSpec struct {
 	// Image is the container image to run.
 	// +kubebuilder:validation:MinLength=1
 	Image string `json:"image"`
@@ -56,10 +56,10 @@ type CodeHubRuntimeSpec struct {
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
-// CodeHubRuntimeStatus is the observed state of a CodeHubRuntime.
+// CodeHubWorkspaceStatus is the observed state of a CodeHubWorkspace.
 // Status holds only summary values; the authoritative last-used timestamp
 // lives in the external store, never here.
-type CodeHubRuntimeStatus struct {
+type CodeHubWorkspaceStatus struct {
 	// Phase is a high-level summary of the runtime state.
 	// +optional
 	Phase string `json:"phase,omitempty"`
@@ -98,7 +98,7 @@ type CodeHubRuntimeStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
-// Phase values for CodeHubRuntimeStatus.Phase.
+// Phase values for CodeHubWorkspaceStatus.Phase.
 const (
 	PhaseRunning    = "Running"
 	PhaseIdle       = "Idle"
@@ -127,24 +127,24 @@ const (
 // +kubebuilder:printcolumn:name="Desired",type=integer,JSONPath=`.status.desiredReplicas`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
-// CodeHubRuntime is the Schema for the codehubruntimes API.
-type CodeHubRuntime struct {
+// CodeHubWorkspace is the Schema for the codehubworkspaces API.
+type CodeHubWorkspace struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   CodeHubRuntimeSpec   `json:"spec,omitempty"`
-	Status CodeHubRuntimeStatus `json:"status,omitempty"`
+	Spec   CodeHubWorkspaceSpec   `json:"spec,omitempty"`
+	Status CodeHubWorkspaceStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// CodeHubRuntimeList contains a list of CodeHubRuntime.
-type CodeHubRuntimeList struct {
+// CodeHubWorkspaceList contains a list of CodeHubWorkspace.
+type CodeHubWorkspaceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []CodeHubRuntime `json:"items"`
+	Items           []CodeHubWorkspace `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&CodeHubRuntime{}, &CodeHubRuntimeList{})
+	SchemeBuilder.Register(&CodeHubWorkspace{}, &CodeHubWorkspaceList{})
 }

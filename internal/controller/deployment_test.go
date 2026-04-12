@@ -12,9 +12,9 @@ import (
 )
 
 func TestBuildDeployment_BasicShape(t *testing.T) {
-	cr := &runtimev1alpha1.CodeHubRuntime{
+	cr := &runtimev1alpha1.CodeHubWorkspace{
 		ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "ns"},
-		Spec: runtimev1alpha1.CodeHubRuntimeSpec{
+		Spec: runtimev1alpha1.CodeHubWorkspaceSpec{
 			Image:         "ghcr.io/x/y:1.0",
 			ContainerPort: 8080,
 		},
@@ -28,7 +28,7 @@ func TestBuildDeployment_BasicShape(t *testing.T) {
 	require.Equal(t, int32(1), *dep.Spec.Replicas)
 
 	wantSelector := map[string]string{
-		"app.kubernetes.io/name":     "codehubruntime",
+		"app.kubernetes.io/name":     "codehubworkspace",
 		"app.kubernetes.io/instance": "demo",
 	}
 	require.Equal(t, wantSelector, dep.Spec.Selector.MatchLabels)
@@ -48,9 +48,9 @@ func TestBuildDeployment_BasicShape(t *testing.T) {
 }
 
 func TestBuildDeployment_HonorsExplicitPullPolicy(t *testing.T) {
-	cr := &runtimev1alpha1.CodeHubRuntime{
+	cr := &runtimev1alpha1.CodeHubWorkspace{
 		ObjectMeta: metav1.ObjectMeta{Name: "x", Namespace: "ns"},
-		Spec: runtimev1alpha1.CodeHubRuntimeSpec{
+		Spec: runtimev1alpha1.CodeHubWorkspaceSpec{
 			Image:           "i",
 			ContainerPort:   1,
 			ImagePullPolicy: corev1.PullAlways,
@@ -61,9 +61,9 @@ func TestBuildDeployment_HonorsExplicitPullPolicy(t *testing.T) {
 }
 
 func TestBuildDeployment_EnvIsDeterministic(t *testing.T) {
-	cr := &runtimev1alpha1.CodeHubRuntime{
+	cr := &runtimev1alpha1.CodeHubWorkspace{
 		ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "ns"},
-		Spec: runtimev1alpha1.CodeHubRuntimeSpec{
+		Spec: runtimev1alpha1.CodeHubWorkspaceSpec{
 			Image:         "img",
 			ContainerPort: 80,
 			Env: map[string]string{
@@ -88,18 +88,18 @@ func TestBuildDeployment_EnvIsDeterministic(t *testing.T) {
 }
 
 func TestBuildDeployment_ReplicasRespected(t *testing.T) {
-	cr := &runtimev1alpha1.CodeHubRuntime{
+	cr := &runtimev1alpha1.CodeHubWorkspace{
 		ObjectMeta: metav1.ObjectMeta{Name: "x", Namespace: "ns"},
-		Spec:       runtimev1alpha1.CodeHubRuntimeSpec{Image: "i", ContainerPort: 1},
+		Spec:       runtimev1alpha1.CodeHubWorkspaceSpec{Image: "i", ContainerPort: 1},
 	}
 	require.Equal(t, int32(0), *buildDeployment(cr, 0).Spec.Replicas)
 	require.Equal(t, int32(1), *buildDeployment(cr, 1).Spec.Replicas)
 }
 
 func TestBuildDeployment_ResourcesApplied(t *testing.T) {
-	cr := &runtimev1alpha1.CodeHubRuntime{
+	cr := &runtimev1alpha1.CodeHubWorkspace{
 		ObjectMeta: metav1.ObjectMeta{Name: "x", Namespace: "ns"},
-		Spec: runtimev1alpha1.CodeHubRuntimeSpec{
+		Spec: runtimev1alpha1.CodeHubWorkspaceSpec{
 			Image:         "i",
 			ContainerPort: 1,
 			Resources: &corev1.ResourceRequirements{
@@ -125,42 +125,42 @@ func TestBuildDeployment_ResourcesApplied(t *testing.T) {
 func TestValidateForDeployment(t *testing.T) {
 	cases := []struct {
 		name    string
-		cr      *runtimev1alpha1.CodeHubRuntime
+		cr      *runtimev1alpha1.CodeHubWorkspace
 		wantErr bool
 	}{
 		{
 			name: "ok",
-			cr: &runtimev1alpha1.CodeHubRuntime{
-				Spec: runtimev1alpha1.CodeHubRuntimeSpec{
+			cr: &runtimev1alpha1.CodeHubWorkspace{
+				Spec: runtimev1alpha1.CodeHubWorkspaceSpec{
 					Image: "i", ContainerPort: 80, ServicePort: 80, MinReplicas: 0, MaxReplicas: 1,
 				},
 			},
 		},
 		{
 			name: "missing image",
-			cr: &runtimev1alpha1.CodeHubRuntime{
-				Spec: runtimev1alpha1.CodeHubRuntimeSpec{ContainerPort: 80, ServicePort: 80},
+			cr: &runtimev1alpha1.CodeHubWorkspace{
+				Spec: runtimev1alpha1.CodeHubWorkspaceSpec{ContainerPort: 80, ServicePort: 80},
 			},
 			wantErr: true,
 		},
 		{
 			name: "bad container port",
-			cr: &runtimev1alpha1.CodeHubRuntime{
-				Spec: runtimev1alpha1.CodeHubRuntimeSpec{Image: "i", ServicePort: 80},
+			cr: &runtimev1alpha1.CodeHubWorkspace{
+				Spec: runtimev1alpha1.CodeHubWorkspaceSpec{Image: "i", ServicePort: 80},
 			},
 			wantErr: true,
 		},
 		{
 			name: "bad service port",
-			cr: &runtimev1alpha1.CodeHubRuntime{
-				Spec: runtimev1alpha1.CodeHubRuntimeSpec{Image: "i", ContainerPort: 80},
+			cr: &runtimev1alpha1.CodeHubWorkspace{
+				Spec: runtimev1alpha1.CodeHubWorkspaceSpec{Image: "i", ContainerPort: 80},
 			},
 			wantErr: true,
 		},
 		{
 			name: "max < min",
-			cr: &runtimev1alpha1.CodeHubRuntime{
-				Spec: runtimev1alpha1.CodeHubRuntimeSpec{
+			cr: &runtimev1alpha1.CodeHubWorkspace{
+				Spec: runtimev1alpha1.CodeHubWorkspaceSpec{
 					Image: "i", ContainerPort: 80, ServicePort: 80, MinReplicas: 1, MaxReplicas: 0,
 				},
 			},
@@ -180,9 +180,9 @@ func TestValidateForDeployment(t *testing.T) {
 }
 
 func TestPodTemplateEquivalent(t *testing.T) {
-	base := &runtimev1alpha1.CodeHubRuntime{
+	base := &runtimev1alpha1.CodeHubWorkspace{
 		ObjectMeta: metav1.ObjectMeta{Name: "x", Namespace: "ns"},
-		Spec: runtimev1alpha1.CodeHubRuntimeSpec{
+		Spec: runtimev1alpha1.CodeHubWorkspaceSpec{
 			Image: "i:1", ContainerPort: 80,
 			Env: map[string]string{"A": "1"},
 		},

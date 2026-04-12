@@ -55,7 +55,7 @@ func main() {
 		Metrics:                metricsserver.Options{BindAddress: metricsAddr},
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "code-hub-operator.runtime.project-jelly.io",
+		LeaderElectionID:       "code-hub-operator.codehub.project-jelly.io",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -69,13 +69,13 @@ func main() {
 	})
 	lastUsedStore := store.NewRedisStore(redisClient)
 
-	if err := (&controller.CodeHubRuntimeReconciler{
+	if err := (&controller.CodeHubWorkspaceReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Store:    lastUsedStore,
-		Recorder: mgr.GetEventRecorderFor("codehubruntime-controller"),
+		Recorder: mgr.GetEventRecorderFor("codehubworkspace-controller"),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CodeHubRuntime")
+		setupLog.Error(err, "unable to create controller", "controller", "CodeHubWorkspace")
 		os.Exit(1)
 	}
 

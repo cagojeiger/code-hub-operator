@@ -26,7 +26,7 @@ Unit / Envtest 가 만질 수 없는 영역:
 
 ### Phase A — Scale-up from create
 
-1. `CodeHubRuntime` CR 적용 (image: `nginx:alpine`, idleTimeoutSeconds: 60, minReplicas: 0, maxReplicas: 1)
+1. `CodeHubWorkspace` CR 적용 (image: `nginx:alpine`, idleTimeoutSeconds: 60, minReplicas: 0, maxReplicas: 1)
 2. 기대: 리컨사일러가 Redis 에 키 없음을 보고 `isIdle=false` → `desired=maxReplicas=1` 로 판단
 3. Deployment 생성, replicas=1, Pod 스케줄링 → image pull → Ready
 4. `kubectl wait --for=condition=Ready pod ...` 로 최대 180초 대기
@@ -129,8 +129,8 @@ Unit / Envtest job 이 성공한 경우에만 실행 (job dependency).
 
 스크립트가 실패하면 로그 마지막에 다음을 덤프한다:
 ```
-=== CR status ===          (kubectl get codehubruntime -o yaml)
-=== demo ns resources ===  (get codehubruntime,deploy,svc,pods)
+=== CR status ===          (kubectl get codehubworkspace -o yaml)
+=== demo ns resources ===  (get codehubworkspace,deploy,svc,pods)
 === events (demo) ===      (get events --sort-by=.lastTimestamp)
 === operator logs ===      (logs deploy/code-hub-operator-controller-manager)
 ```

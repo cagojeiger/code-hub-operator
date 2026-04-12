@@ -1,6 +1,6 @@
 # Owned Resources Spec — Deployment & Service
 
-`CodeHubRuntime` 하나는 정확히 **Deployment 1개**와 **Service 1개**를 소유한다. 둘 다 CR와 같은 네임스페이스에 생성되고 이름은 CR 이름과 동일하다.
+`CodeHubWorkspace` 하나는 정확히 **Deployment 1개**와 **Service 1개**를 소유한다. 둘 다 CR와 같은 네임스페이스에 생성되고 이름은 CR 이름과 동일하다.
 
 ## 라벨 규약
 
@@ -9,7 +9,7 @@
 상수:
 
 ```go
-labelName      = "app.kubernetes.io/name"       // "codehubruntime"
+labelName      = "app.kubernetes.io/name"       // "codehubworkspace"
 labelInstance  = "app.kubernetes.io/instance"   // CR name
 labelManagedBy = "app.kubernetes.io/managed-by" // "code-hub-operator"
 ```
@@ -25,7 +25,7 @@ labelManagedBy = "app.kubernetes.io/managed-by" // "code-hub-operator"
 
 ## Deployment
 
-빌더: `buildDeployment(cr *CodeHubRuntime, replicas int32) *appsv1.Deployment` in `internal/controller/deployment.go`.
+빌더: `buildDeployment(cr *CodeHubWorkspace, replicas int32) *appsv1.Deployment` in `internal/controller/deployment.go`.
 
 ### 구조
 
@@ -36,12 +36,12 @@ metadata:
   name: <cr.Name>
   namespace: <cr.Namespace>
   labels:
-    app.kubernetes.io/name: codehubruntime
+    app.kubernetes.io/name: codehubworkspace
     app.kubernetes.io/instance: <cr.Name>
     app.kubernetes.io/managed-by: code-hub-operator
   ownerReferences:
-    - apiVersion: runtime.project-jelly.io/v1alpha1
-      kind: CodeHubRuntime
+    - apiVersion: codehub.project-jelly.io/v1alpha1
+      kind: CodeHubWorkspace
       name: <cr.Name>
       uid: <cr.UID>
       controller: true
@@ -50,12 +50,12 @@ spec:
   replicas: <computed by reconciler>   # 0 or 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: codehubruntime
+      app.kubernetes.io/name: codehubworkspace
       app.kubernetes.io/instance: <cr.Name>
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: codehubruntime
+        app.kubernetes.io/name: codehubworkspace
         app.kubernetes.io/instance: <cr.Name>
     spec:
       containers:
@@ -81,7 +81,7 @@ spec:
 
 ### Update 로직
 
-`ensureDeployment` (in `codehubruntime_controller.go`):
+`ensureDeployment` (in `codehubworkspace_controller.go`):
 
 1. Deployment가 없으면 → `buildDeployment` + `Create`
 2. 있으면 → 다음 2가지 중 하나라도 다르면 `Update`, 아니면 노터치
@@ -108,7 +108,7 @@ spec:
 
 ## Service
 
-빌더: `buildService(cr *CodeHubRuntime) *corev1.Service` in `internal/controller/service.go`.
+빌더: `buildService(cr *CodeHubWorkspace) *corev1.Service` in `internal/controller/service.go`.
 
 ### 구조
 

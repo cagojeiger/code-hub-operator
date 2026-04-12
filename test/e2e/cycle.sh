@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# End-to-end: run the full CodeHubRuntime scale cycle on a kind cluster.
+# End-to-end: run the full CodeHubWorkspace scale cycle on a kind cluster.
 #
 # Phases:
 #   A. apply CR → Pod Ready + CR phase=Running
@@ -44,10 +44,10 @@ dump_state() {
   "${KC[@]}" -n "${OPERATOR_NS}" logs deploy/code-hub-operator-controller-manager --tail=60 || true
   echo
   echo "=== CR ==="
-  "${KC[@]}" -n "${APP_NS}" get codehubruntime "${CR_NAME}" -o yaml || true
+  "${KC[@]}" -n "${APP_NS}" get codehubworkspace "${CR_NAME}" -o yaml || true
   echo
   echo "=== app ns resources ==="
-  "${KC[@]}" -n "${APP_NS}" get codehubruntime,deploy,svc,pods || true
+  "${KC[@]}" -n "${APP_NS}" get codehubworkspace,deploy,svc,pods || true
   echo
   echo "=== app ns events ==="
   "${KC[@]}" -n "${APP_NS}" get events --sort-by=.lastTimestamp | tail -20 || true
@@ -137,7 +137,7 @@ op_pod=$("${KC[@]}" -n "${OPERATOR_NS}" get pods \
 lease_ok=0
 for _ in $(seq 1 60); do
   holder=$("${KC[@]}" -n "${OPERATOR_NS}" get lease \
-    code-hub-operator.runtime.project-jelly.io \
+    code-hub-operator.codehub.project-jelly.io \
     -o jsonpath='{.spec.holderIdentity}' 2>/dev/null || echo "")
   if [[ "${holder}" == "${op_pod}"* ]]; then
     lease_ok=1
@@ -158,11 +158,11 @@ step "Resetting Redis state (idempotency)"
   || fail "redis DEL failed — is the operator redis pod running?"
 
 step "Applying sample CR (nginx:alpine, idle=60s)"
-"${KC[@]}" -n "${APP_NS}" delete codehubruntime "${CR_NAME}" --ignore-not-found --wait=true
+"${KC[@]}" -n "${APP_NS}" delete codehubworkspace "${CR_NAME}" --ignore-not-found --wait=true
 cat <<YAML | "${KC[@]}" -n "${APP_NS}" apply -f -
 ---
-apiVersion: runtime.project-jelly.io/v1alpha1
-kind: CodeHubRuntime
+apiVersion: codehub.project-jelly.io/v1alpha1
+kind: CodeHubWorkspace
 metadata:
   name: ${CR_NAME}
 spec:
@@ -205,8 +205,8 @@ step "Phase A — waiting for Pod Ready"
   -l "app.kubernetes.io/instance=${CR_NAME}" --timeout=240s \
   || fail "Pod never became Ready"
 
-PHASE_A=$("${KC[@]}" -n "${APP_NS}" get codehubruntime "${CR_NAME}" -o jsonpath='{.status.phase}')
-DESIRED_A=$("${KC[@]}" -n "${APP_NS}" get codehubruntime "${CR_NAME}" -o jsonpath='{.status.desiredReplicas}')
+PHASE_A=$("${KC[@]}" -n "${APP_NS}" get codehubworkspace "${CR_NAME}" -o jsonpath='{.status.phase}')
+DESIRED_A=$("${KC[@]}" -n "${APP_NS}" get codehubworkspace "${CR_NAME}" -o jsonpath='{.status.desiredReplicas}')
 [[ "${PHASE_A}" == "Running" ]] || fail "expected phase=Running, got '${PHASE_A}'"
 [[ "${DESIRED_A}" == "1" ]] || fail "expected desiredReplicas=1, got '${DESIRED_A}'"
 echo "Phase A OK: phase=${PHASE_A}, desiredReplicas=${DESIRED_A}"
@@ -233,7 +233,7 @@ echo "SET ${LAST_USED_KEY} = ${STALE_EPOCH} (5 min ago)"
 step "Phase C — waiting for phase=ScaledDown (up to 120s)"
 "${KC[@]}" -n "${APP_NS}" wait \
   --for=jsonpath='{.status.phase}'=ScaledDown \
-  "codehubruntime/${CR_NAME}" --timeout=120s \
+  "codehubworkspace/${CR_NAME}" --timeout=120s \
   || fail "CR never reached phase=ScaledDown"
 
 # ─── Phase D: final assertions ───────────────────────────────────────────────

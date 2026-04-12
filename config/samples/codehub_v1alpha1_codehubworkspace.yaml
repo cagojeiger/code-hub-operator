@@ -1,6 +1,6 @@
 ---
-apiVersion: runtime.project-jelly.io/v1alpha1
-kind: CodeHubRuntime
+apiVersion: codehub.project-jelly.io/v1alpha1
+kind: CodeHubWorkspace
 metadata:
   name: demo-runtime
   namespace: demo
