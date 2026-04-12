@@ -31,6 +31,11 @@ const (
 	eventReasonScaledDown       = "ScaledDown"
 	eventReasonStoreUnreachable = "StoreUnreachable"
 	eventReasonReconcileError   = "ReconcileError"
+
+	classReasonMerged      = "Merged"
+	classReasonNotFound    = "ClassNotFound"
+	classReasonAccessError = "ClassAccessError"
+	classReasonFetchError  = "ClassFetchError"
 )
 
 // Clock is an injectable time source. Tests provide a fake clock; production
@@ -98,6 +103,8 @@ func (r *CodeHubWorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 	if class != nil {
 		cr.Status.ResolvedClass = class.Name
+	} else {
+		cr.Status.ResolvedClass = ""
 	}
 
 	if err := validateForDeployment(cr); err != nil {
@@ -332,9 +339,11 @@ func (r *CodeHubWorkspaceReconciler) writeSuccessStatus(
 		meta.SetStatusCondition(&cr.Status.Conditions, metav1.Condition{
 			Type:    runtimev1alpha1.ConditionClassResolved,
 			Status:  metav1.ConditionTrue,
-			Reason:  "Merged",
+			Reason:  classReasonMerged,
 			Message: fmt.Sprintf("merged defaults from CodeHubWorkspaceClass %q", cr.Status.ResolvedClass),
 		})
+	} else {
+		meta.RemoveStatusCondition(&cr.Status.Conditions, runtimev1alpha1.ConditionClassResolved)
 	}
 
 	switch scaleAction {
@@ -388,7 +397,7 @@ func (r *CodeHubWorkspaceReconciler) writeClassErrorStatus(
 	meta.SetStatusCondition(&cr.Status.Conditions, metav1.Condition{
 		Type:    runtimev1alpha1.ConditionClassResolved,
 		Status:  metav1.ConditionFalse,
-		Reason:  "ClassNotFound",
+		Reason:  classifyClassErrorReason(classErr),
 		Message: classErr.Error(),
 	})
 	r.recordWarning(cr, eventReasonReconcileError, "%s", classErr.Error())
@@ -430,6 +439,16 @@ func (r *CodeHubWorkspaceReconciler) recordWarning(cr *runtimev1alpha1.CodeHubWo
 		return
 	}
 	r.Recorder.Eventf(cr, corev1.EventTypeWarning, reason, msg, args...)
+}
+
+func classifyClassErrorReason(err error) string {
+	if apierrors.IsNotFound(err) {
+		return classReasonNotFound
+	}
+	if apierrors.IsForbidden(err) || apierrors.IsUnauthorized(err) {
+		return classReasonAccessError
+	}
+	return classReasonFetchError
 }
 
 // SetupWithManager registers this reconciler with the manager and wires

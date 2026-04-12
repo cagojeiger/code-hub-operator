@@ -9,9 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
@@ -130,6 +132,13 @@ func sampleRuntime() *runtimev1alpha1.CodeHubWorkspace {
 			MaxReplicas:        1,
 			LastUsedKey:        "runtime:default:demo:last_used_at",
 		},
+	}
+}
+
+func sampleClass(name string) *runtimev1alpha1.CodeHubWorkspaceClass {
+	return &runtimev1alpha1.CodeHubWorkspaceClass{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec:       runtimev1alpha1.CodeHubWorkspaceClassSpec{},
 	}
 }
 
@@ -331,6 +340,49 @@ func TestReconcile_InvalidSpecStopsWithoutRequeueLoop(t *testing.T) {
 
 	got := env.getCR(cr.Name, cr.Namespace)
 	require.Equal(t, runtimev1alpha1.PhaseError, got.Status.Phase)
+}
+
+func TestReconcile_ClassRefRemovedClearsResolvedClassAndCondition(t *testing.T) {
+	cr := sampleRuntime()
+	cr.Spec.ClassRef = "standard"
+	class := sampleClass("standard")
+	env := newTestEnv(t, class, cr)
+
+	env.reconcile(cr.Name, cr.Namespace)
+	got := env.getCR(cr.Name, cr.Namespace)
+	require.Equal(t, "standard", got.Status.ResolvedClass)
+	require.NotNil(t, findCondition(got.Status.Conditions, runtimev1alpha1.ConditionClassResolved))
+
+	fresh := env.getCR(cr.Name, cr.Namespace)
+	fresh.Spec.ClassRef = ""
+	require.NoError(t, env.client.Update(context.Background(), fresh))
+	env.reconcile(cr.Name, cr.Namespace)
+
+	got = env.getCR(cr.Name, cr.Namespace)
+	require.Equal(t, "", got.Status.ResolvedClass)
+	require.Nil(t, findCondition(got.Status.Conditions, runtimev1alpha1.ConditionClassResolved))
+}
+
+func TestReconcile_MissingClassSetsClassNotFoundReason(t *testing.T) {
+	cr := sampleRuntime()
+	cr.Spec.ClassRef = "missing-class"
+	env := newTestEnv(t, cr)
+
+	env.reconcile(cr.Name, cr.Namespace)
+
+	got := env.getCR(cr.Name, cr.Namespace)
+	classCond := findCondition(got.Status.Conditions, runtimev1alpha1.ConditionClassResolved)
+	require.NotNil(t, classCond)
+	require.Equal(t, metav1.ConditionFalse, classCond.Status)
+	require.Equal(t, classReasonNotFound, classCond.Reason)
+}
+
+func TestClassifyClassErrorReason(t *testing.T) {
+	gr := schema.GroupResource{Group: "codehub.project-jelly.io", Resource: "codehubworkspaceclasses"}
+	require.Equal(t, classReasonNotFound, classifyClassErrorReason(apierrors.NewNotFound(gr, "missing")))
+	require.Equal(t, classReasonAccessError, classifyClassErrorReason(apierrors.NewForbidden(gr, "x", errors.New("forbidden"))))
+	require.Equal(t, classReasonAccessError, classifyClassErrorReason(apierrors.NewUnauthorized("unauthorized")))
+	require.Equal(t, classReasonFetchError, classifyClassErrorReason(errors.New("transient transport error")))
 }
 
 func TestReconcile_IdempotentUpdate(t *testing.T) {
