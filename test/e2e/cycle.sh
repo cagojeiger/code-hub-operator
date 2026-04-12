@@ -21,8 +21,9 @@ KUBE_CONTEXT="${KUBE_CONTEXT:-kind-${KIND_CLUSTER}}"
 IMG="${IMG:-code-hub-operator:e2e}"
 OPERATOR_NS="code-hub-operator-system"
 APP_NS="e2e-demo"
-CR_NAME="demo-runtime"
-LAST_USED_KEY="runtime:${APP_NS}:${CR_NAME}:last_used_at"
+CR_NAME="demo-workspace"
+CLASS_NAME="e2e-standard"
+LAST_USED_KEY="workspace:${APP_NS}:${CR_NAME}:last_used_at"
 
 KC=(kubectl --context="${KUBE_CONTEXT}")
 
@@ -157,7 +158,30 @@ step "Resetting Redis state (idempotency)"
   redis-cli DEL "${LAST_USED_KEY}" >/dev/null \
   || fail "redis DEL failed — is the operator redis pod running?"
 
-step "Applying sample CR (nginx:alpine, idle=60s)"
+step "Applying CodeHubWorkspaceClass (platform defaults)"
+# Cluster-scoped; re-applying via apply is safe.
+cat <<YAML | "${KC[@]}" apply -f -
+---
+apiVersion: codehub.project-jelly.io/v1alpha1
+kind: CodeHubWorkspaceClass
+metadata:
+  name: ${CLASS_NAME}
+spec:
+  image: nginx:alpine
+  imagePullPolicy: IfNotPresent
+  servicePort: 80
+  containerPort: 80
+  idleTimeoutSeconds: 60
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "32Mi"
+    limits:
+      cpu: "200m"
+      memory: "128Mi"
+YAML
+
+step "Applying CodeHubWorkspace (inherits from Class ${CLASS_NAME})"
 "${KC[@]}" -n "${APP_NS}" delete codehubworkspace "${CR_NAME}" --ignore-not-found --wait=true
 cat <<YAML | "${KC[@]}" -n "${APP_NS}" apply -f -
 ---
@@ -166,21 +190,10 @@ kind: CodeHubWorkspace
 metadata:
   name: ${CR_NAME}
 spec:
-  image: nginx:alpine
-  imagePullPolicy: IfNotPresent
-  servicePort: 80
-  containerPort: 80
-  idleTimeoutSeconds: 60
+  classRef: ${CLASS_NAME}
   minReplicas: 0
   maxReplicas: 1
   lastUsedKey: "${LAST_USED_KEY}"
-  resources:
-    requests:
-      cpu: "50m"
-      memory: "32Mi"
-    limits:
-      cpu: "200m"
-      memory: "128Mi"
 YAML
 
 # ─── Phase A: scale-up ───────────────────────────────────────────────────────
@@ -207,9 +220,19 @@ step "Phase A — waiting for Pod Ready"
 
 PHASE_A=$("${KC[@]}" -n "${APP_NS}" get codehubworkspace "${CR_NAME}" -o jsonpath='{.status.phase}')
 DESIRED_A=$("${KC[@]}" -n "${APP_NS}" get codehubworkspace "${CR_NAME}" -o jsonpath='{.status.desiredReplicas}')
+RESOLVED_CLASS=$("${KC[@]}" -n "${APP_NS}" get codehubworkspace "${CR_NAME}" -o jsonpath='{.status.resolvedClass}')
 [[ "${PHASE_A}" == "Running" ]] || fail "expected phase=Running, got '${PHASE_A}'"
 [[ "${DESIRED_A}" == "1" ]] || fail "expected desiredReplicas=1, got '${DESIRED_A}'"
-echo "Phase A OK: phase=${PHASE_A}, desiredReplicas=${DESIRED_A}"
+[[ "${RESOLVED_CLASS}" == "${CLASS_NAME}" ]] || fail "expected status.resolvedClass=${CLASS_NAME}, got '${RESOLVED_CLASS}'"
+
+# Verify the Deployment actually uses the image from the Class (not hardcoded
+# anywhere in the Workspace spec).
+DEP_IMAGE=$("${KC[@]}" -n "${APP_NS}" get deploy "${CR_NAME}" \
+  -o jsonpath='{.spec.template.spec.containers[0].image}')
+[[ "${DEP_IMAGE}" == "nginx:alpine" ]] \
+  || fail "expected Deployment container image 'nginx:alpine' (from Class), got '${DEP_IMAGE}'"
+
+echo "Phase A OK: phase=${PHASE_A}, desired=${DESIRED_A}, resolvedClass=${RESOLVED_CLASS}"
 
 # ─── Phase B: traffic ────────────────────────────────────────────────────────
 step "Phase B — in-cluster curl to Service"
