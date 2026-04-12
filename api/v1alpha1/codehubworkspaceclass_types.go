@@ -44,7 +44,7 @@ type CodeHubWorkspaceClassSpec struct {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:scope=Cluster,shortName=chwsc
+// +kubebuilder:resource:scope=Cluster,shortName=chwc
 // +kubebuilder:printcolumn:name="Image",type=string,JSONPath=`.spec.image`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 

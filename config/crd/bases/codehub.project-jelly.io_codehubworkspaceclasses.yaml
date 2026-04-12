@@ -12,7 +12,7 @@ spec:
     listKind: CodeHubWorkspaceClassList
     plural: codehubworkspaceclasses
     shortNames:
-    - chwsc
+    - chwc
     singular: codehubworkspaceclass
   scope: Cluster
   versions:
