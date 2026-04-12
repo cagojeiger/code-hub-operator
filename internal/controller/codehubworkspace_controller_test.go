@@ -328,15 +328,16 @@ func TestReconcile_NotFoundIsNoop(t *testing.T) {
 	require.Equal(t, ctrl.Result{}, res)
 }
 
-func TestReconcile_InvalidSpecStopsWithoutRequeueLoop(t *testing.T) {
+func TestReconcile_InvalidSpecRequeuesOnNormalCadence(t *testing.T) {
 	cr := sampleRuntime()
 	cr.Spec.Image = "" // invalid
 	env := newTestEnv(t, cr)
 
 	res, err := env.reconcileExpectErr(cr.Name, cr.Namespace)
 	require.NoError(t, err)
-	require.Equal(t, ctrl.Result{}, res,
-		"invalid spec is a user error and should not trigger a tight requeue loop")
+	require.Equal(t, requeueAfter, res.RequeueAfter,
+		"invalid spec must requeue on the normal cadence so Class-edit recovery works — "+
+			"not tight-loop and not drop the reconcile entirely")
 
 	got := env.getCR(cr.Name, cr.Namespace)
 	require.Equal(t, runtimev1alpha1.PhaseError, got.Status.Phase)
@@ -361,6 +362,36 @@ func TestReconcile_ClassRefRemovedClearsResolvedClassAndCondition(t *testing.T) 
 	got = env.getCR(cr.Name, cr.Namespace)
 	require.Equal(t, "", got.Status.ResolvedClass)
 	require.Nil(t, findCondition(got.Status.Conditions, runtimev1alpha1.ConditionClassResolved))
+}
+
+func TestReconcile_ClassDeletedClearsStaleResolvedClass(t *testing.T) {
+	cr := sampleRuntime()
+	cr.Spec.ClassRef = "standard"
+	class := sampleClass("standard")
+	env := newTestEnv(t, class, cr)
+
+	// First reconcile: Class exists → resolvedClass is set.
+	env.reconcile(cr.Name, cr.Namespace)
+	got := env.getCR(cr.Name, cr.Namespace)
+	require.Equal(t, "standard", got.Status.ResolvedClass,
+		"first reconcile must populate resolvedClass when Class exists")
+
+	// Class is removed while the Workspace still references it. A stale
+	// resolvedClass here would contradict the Condition and confuse users.
+	require.NoError(t, env.client.Delete(context.Background(), class))
+
+	// Second reconcile: Class is gone → error path. Stale value must be cleared.
+	env.reconcile(cr.Name, cr.Namespace)
+
+	got = env.getCR(cr.Name, cr.Namespace)
+	require.Equal(t, "", got.Status.ResolvedClass,
+		"writeClassErrorStatus must clear resolvedClass when the Class disappears")
+	require.Equal(t, runtimev1alpha1.PhaseError, got.Status.Phase)
+
+	classCond := findCondition(got.Status.Conditions, runtimev1alpha1.ConditionClassResolved)
+	require.NotNil(t, classCond)
+	require.Equal(t, metav1.ConditionFalse, classCond.Status)
+	require.Equal(t, classReasonNotFound, classCond.Reason)
 }
 
 func TestReconcile_MissingClassSetsClassNotFoundReason(t *testing.T) {
