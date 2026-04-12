@@ -63,7 +63,7 @@ effective.Resources          = ws.Resources          ?: class.Resources (deep-co
 
 실패 경로 (Class missing / RBAC 거부 / transient API 오류):
 - `status.phase = Error`
-- `ClassResolved=False` 컨디션 (reason: `ClassNotFound` 등)
+- `ClassResolved=False` 컨디션 (reason: `ClassNotFound` / `ClassAccessError` / `ClassFetchError`)
 - `ReconcileError` 타입의 Warning 이벤트 발행
 - 자식 리소스(Deployment/Service) 생성하지 않고 다음 requeue까지 대기
 

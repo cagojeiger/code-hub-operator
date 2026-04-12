@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -35,9 +34,6 @@ func applyClassDefaults(ctx context.Context, c client.Client, ws *runtimev1alpha
 	if ws.Spec.ClassRef != "" {
 		class := &runtimev1alpha1.CodeHubWorkspaceClass{}
 		if err := c.Get(ctx, types.NamespacedName{Name: ws.Spec.ClassRef}, class); err != nil {
-			if apierrors.IsNotFound(err) {
-				return nil, fmt.Errorf("CodeHubWorkspaceClass %q not found", ws.Spec.ClassRef)
-			}
 			return nil, fmt.Errorf("fetch CodeHubWorkspaceClass %q: %w", ws.Spec.ClassRef, err)
 		}
 		mergeFromClass(ws, class)
