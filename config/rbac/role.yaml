@@ -34,6 +34,7 @@ rules:
 - apiGroups:
   - codehub.project-jelly.io
   resources:
+  - codehubworkspaceclasses
   - codehubworkspaces
   verbs:
   - get

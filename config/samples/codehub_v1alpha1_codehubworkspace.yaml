@@ -1,24 +1,17 @@
 ---
+# Minimal CodeHubWorkspace that inherits image / ports / idle / resources
+# from the 'standard' CodeHubWorkspaceClass. Only instance-level fields
+# (replica policy, last-used key, env) live here. Apply the Class from
+# codehub_v1alpha1_codehubworkspaceclass.yaml first.
 apiVersion: codehub.project-jelly.io/v1alpha1
 kind: CodeHubWorkspace
 metadata:
-  name: demo-runtime
+  name: demo-workspace
   namespace: demo
 spec:
-  image: ghcr.io/acme/runtime-demo:0.1.0
-  imagePullPolicy: IfNotPresent
-  servicePort: 80
-  containerPort: 8080
-  idleTimeoutSeconds: 1800
+  classRef: standard
   minReplicas: 0
   maxReplicas: 1
-  lastUsedKey: "runtime:demo:demo-runtime:last_used_at"
+  lastUsedKey: "workspace:demo:demo-workspace:last_used_at"
   env:
-    APP_MODE: runtime
-  resources:
-    requests:
-      cpu: "250m"
-      memory: "256Mi"
-    limits:
-      cpu: "500m"
-      memory: "512Mi"
+    APP_MODE: workspace

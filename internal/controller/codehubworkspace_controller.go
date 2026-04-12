@@ -56,6 +56,7 @@ type CodeHubWorkspaceReconciler struct {
 
 // +kubebuilder:rbac:groups=codehub.project-jelly.io,resources=codehubworkspaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups=codehub.project-jelly.io,resources=codehubworkspaces/status,verbs=get;update
+// +kubebuilder:rbac:groups=codehub.project-jelly.io,resources=codehubworkspaceclasses,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
@@ -78,9 +79,25 @@ func (r *CodeHubWorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	logger := log.FromContext(ctx)
 	clock := r.clock()
 
-	cr := &runtimev1alpha1.CodeHubWorkspace{}
-	if err := r.Get(ctx, req.NamespacedName, cr); err != nil {
+	fetched := &runtimev1alpha1.CodeHubWorkspace{}
+	if err := r.Get(ctx, req.NamespacedName, fetched); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// Work on a deep copy so we can safely merge Class defaults without
+	// polluting the authoritative spec in etcd. Status().Update uses the
+	// copy too — the status subresource ignores spec mutations, so this
+	// is safe.
+	cr := fetched.DeepCopy()
+
+	class, classErr := applyClassDefaults(ctx, r.Client, cr)
+	if classErr != nil {
+		logger.Error(classErr, "resolve class")
+		r.writeClassErrorStatus(ctx, cr, classErr, clock)
+		return ctrl.Result{RequeueAfter: requeueAfter}, nil
+	}
+	if class != nil {
+		cr.Status.ResolvedClass = class.Name
 	}
 
 	if err := validateForDeployment(cr); err != nil {
@@ -309,6 +326,16 @@ func (r *CodeHubWorkspaceReconciler) writeSuccessStatus(
 		Status: metav1.ConditionTrue,
 		Reason: "Reachable",
 	})
+	// ClassResolved is always True on the happy path — we would have bailed
+	// out via writeClassErrorStatus if resolution had failed.
+	if cr.Spec.ClassRef != "" {
+		meta.SetStatusCondition(&cr.Status.Conditions, metav1.Condition{
+			Type:    runtimev1alpha1.ConditionClassResolved,
+			Status:  metav1.ConditionTrue,
+			Reason:  "Merged",
+			Message: fmt.Sprintf("merged defaults from CodeHubWorkspaceClass %q", cr.Status.ResolvedClass),
+		})
+	}
 
 	switch scaleAction {
 	case runtimev1alpha1.ScaleActionScaleToOne:
@@ -341,6 +368,30 @@ func (r *CodeHubWorkspaceReconciler) writeStoreErrorStatus(
 		Message: storeErr.Error(),
 	})
 	r.recordWarning(cr, eventReasonStoreUnreachable, "%s", storeErr.Error())
+
+	_ = r.Status().Update(ctx, cr)
+}
+
+// writeClassErrorStatus reports failure to resolve a referenced
+// CodeHubWorkspaceClass. Phase = Error, ClassResolved = False. Replicas are
+// left alone — no child resources are created when the Class is missing.
+func (r *CodeHubWorkspaceReconciler) writeClassErrorStatus(
+	ctx context.Context,
+	cr *runtimev1alpha1.CodeHubWorkspace,
+	classErr error,
+	clock Clock,
+) {
+	cr.Status.Phase = runtimev1alpha1.PhaseError
+	cr.Status.ObservedGeneration = cr.Generation
+	cr.Status.LastEvaluatedTime = metav1.NewTime(clock.Now())
+
+	meta.SetStatusCondition(&cr.Status.Conditions, metav1.Condition{
+		Type:    runtimev1alpha1.ConditionClassResolved,
+		Status:  metav1.ConditionFalse,
+		Reason:  "ClassNotFound",
+		Message: classErr.Error(),
+	})
+	r.recordWarning(cr, eventReasonReconcileError, "%s", classErr.Error())
 
 	_ = r.Status().Update(ctx, cr)
 }

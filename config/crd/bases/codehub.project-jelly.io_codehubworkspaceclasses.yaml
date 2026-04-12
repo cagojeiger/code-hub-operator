@@ -1,0 +1,155 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.5
+  name: codehubworkspaceclasses.codehub.project-jelly.io
+spec:
+  group: codehub.project-jelly.io
+  names:
+    kind: CodeHubWorkspaceClass
+    listKind: CodeHubWorkspaceClassList
+    plural: codehubworkspaceclasses
+    shortNames:
+    - chwsc
+    singular: codehubworkspaceclass
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.image
+      name: Image
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          CodeHubWorkspaceClass is a cluster-scoped bundle of defaults applied to any
+          CodeHubWorkspace that references it via spec.classRef. Platform admins
+          curate one or more Classes (e.g. "python-small", "node-large") and users
+          pick one in their Workspace instead of copy/pasting image + resources +
+          port defaults into every manifest.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              CodeHubWorkspaceClassSpec holds platform-level defaults that a
+              CodeHubWorkspace instance inherits when it references this class via
+              spec.classRef. Every field is optional. The reconciler merges a referenced
+              Class into each Workspace with Workspace values winning over Class values,
+              so a Class is a "default image sheet", not a mandatory template.
+            properties:
+              containerPort:
+                description: ContainerPort is the default port the container listens
+                  on.
+                format: int32
+                maximum: 65535
+                minimum: 1
+                type: integer
+              idleTimeoutSeconds:
+                description: IdleTimeoutSeconds is the default idle timeout before
+                  scale-down.
+                format: int64
+                minimum: 60
+                type: integer
+              image:
+                description: |-
+                  Image is the default container image used when a referring Workspace
+                  does not set one.
+                type: string
+              imagePullPolicy:
+                description: ImagePullPolicy for the container.
+                enum:
+                - Always
+                - IfNotPresent
+                - Never
+                type: string
+              resources:
+                description: Resources are the default container resource requirements.
+                properties:
+                  claims:
+                    description: |-
+                      Claims lists the names of resources, defined in spec.resourceClaims,
+                      that are used by this container.
+
+                      This is an alpha field and requires enabling the
+                      DynamicResourceAllocation feature gate.
+
+                      This field is immutable. It can only be set for containers.
+                    items:
+                      description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                      properties:
+                        name:
+                          description: |-
+                            Name must match the name of one entry in pod.spec.resourceClaims of
+                            the Pod where this field is used. It makes that resource available
+                            inside a container.
+                          type: string
+                        request:
+                          description: |-
+                            Request is the name chosen for a request in the referenced claim.
+                            If empty, everything from the claim is made available, otherwise
+                            only the result of this request.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  limits:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: |-
+                      Limits describes the maximum amount of compute resources allowed.
+                      More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                    type: object
+                  requests:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: |-
+                      Requests describes the minimum amount of compute resources required.
+                      If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                      otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                      More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                    type: object
+                type: object
+              servicePort:
+                description: ServicePort is the default port the Service exposes.
+                format: int32
+                maximum: 65535
+                minimum: 1
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources: {}

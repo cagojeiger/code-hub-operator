@@ -12,11 +12,14 @@ spec:
     listKind: CodeHubWorkspaceList
     plural: codehubworkspaces
     shortNames:
-    - chr
+    - chws
     singular: codehubworkspace
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.classRef
+      name: Class
+      type: string
     - jsonPath: .status.phase
       name: Phase
       type: string
@@ -52,11 +55,24 @@ spec:
           metadata:
             type: object
           spec:
-            description: CodeHubWorkspaceSpec defines the desired state of a single
-              runtime instance.
+            description: |-
+              CodeHubWorkspaceSpec defines the desired state of a single workspace
+              instance. Fields that can reasonably come from a CodeHubWorkspaceClass are
+              optional here — the reconciler merges the referenced Class before validating.
+              Workspace values always win over Class values.
             properties:
+              classRef:
+                description: |-
+                  ClassRef is the name of a cluster-scoped CodeHubWorkspaceClass whose
+                  defaults should be inherited by this Workspace. Optional. When set,
+                  the reconciler fetches the Class and fills any unset fields below
+                  before reconciling children. When unset, only values directly on
+                  this Spec are used.
+                type: string
               containerPort:
-                description: ContainerPort is the port the container listens on.
+                description: |-
+                  ContainerPort is the port the container listens on. Optional — may
+                  come from the referenced Class.
                 format: int32
                 maximum: 65535
                 minimum: 1
@@ -64,22 +80,29 @@ spec:
               env:
                 additionalProperties:
                   type: string
-                description: Env are environment variables passed to the container.
+                description: |-
+                  Env are environment variables passed to the container. Workspace-only,
+                  not inherited from Class (merge semantics would be ambiguous).
                 type: object
               idleTimeoutSeconds:
                 description: |-
-                  IdleTimeoutSeconds is the time since last use after which the runtime
-                  is considered idle and scaled down to MinReplicas.
+                  IdleTimeoutSeconds is the time since last use after which the
+                  workspace is considered idle and scaled down to MinReplicas.
+                  Optional — may come from the referenced Class.
                 format: int64
                 minimum: 60
                 type: integer
               image:
-                description: Image is the container image to run.
-                minLength: 1
+                description: |-
+                  Image is the container image to run. Optional — may come from the
+                  referenced Class. The merged value must be non-empty or reconcile
+                  fails with a Ready=False condition.
                 type: string
               imagePullPolicy:
-                default: IfNotPresent
-                description: ImagePullPolicy for the container. Defaults to IfNotPresent.
+                description: |-
+                  ImagePullPolicy for the container. Optional — may come from the
+                  referenced Class. When neither Workspace nor Class sets it, the
+                  reconciler falls back to IfNotPresent.
                 enum:
                 - Always
                 - IfNotPresent
@@ -87,26 +110,32 @@ spec:
                 type: string
               lastUsedKey:
                 description: |-
-                  LastUsedKey is the key in the external store that holds the last-used
-                  timestamp (Unix epoch seconds) for this runtime.
+                  LastUsedKey is the key in the external store that holds the
+                  last-used timestamp (Unix epoch seconds) for this workspace.
+                  Required — the key identifies a specific instance and cannot be
+                  inherited from a Class.
                 minLength: 1
                 type: string
               maxReplicas:
-                description: MaxReplicas is the replica count when active. Must be
-                  1 in v1.
+                description: |-
+                  MaxReplicas is the replica count when active. Must be 1 in v1.
+                  Required — instance-specific scaling policy.
                 format: int32
                 maximum: 1
                 minimum: 1
                 type: integer
               minReplicas:
-                description: MinReplicas is the replica count when idle. Must be 0
-                  or 1 in v1.
+                description: |-
+                  MinReplicas is the replica count when idle. Must be 0 or 1 in v1.
+                  Required — instance-specific scaling policy.
                 format: int32
                 maximum: 1
                 minimum: 0
                 type: integer
               resources:
-                description: Resources are the container resource requirements.
+                description: |-
+                  Resources are the container resource requirements. Optional — may
+                  come from the referenced Class.
                 properties:
                   claims:
                     description: |-
@@ -165,19 +194,17 @@ spec:
                     type: object
                 type: object
               servicePort:
-                description: ServicePort is the port the Service exposes.
+                description: |-
+                  ServicePort is the port the Service exposes. Optional — may come
+                  from the referenced Class.
                 format: int32
                 maximum: 65535
                 minimum: 1
                 type: integer
             required:
-            - containerPort
-            - idleTimeoutSeconds
-            - image
             - lastUsedKey
             - maxReplicas
             - minReplicas
-            - servicePort
             type: object
           status:
             description: |-
@@ -252,7 +279,7 @@ spec:
                 format: int32
                 type: integer
               idleSince:
-                description: IdleSince is the time at which the runtime first became
+                description: IdleSince is the time at which the workspace first became
                   idle. Nil while active.
                 format: date-time
                 type: string
@@ -272,13 +299,19 @@ spec:
                 format: int64
                 type: integer
               phase:
-                description: Phase is a high-level summary of the runtime state.
+                description: Phase is a high-level summary of the workspace state.
                 type: string
               readyReplicas:
                 description: ReadyReplicas is the number of ready pods observed on
                   the Deployment.
                 format: int32
                 type: integer
+              resolvedClass:
+                description: |-
+                  ResolvedClass is the name of the CodeHubWorkspaceClass that was
+                  successfully merged into this Workspace on the most recent reconcile.
+                  Empty when spec.classRef is unset.
+                type: string
             type: object
         type: object
     served: true
