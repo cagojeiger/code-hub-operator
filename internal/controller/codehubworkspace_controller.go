@@ -109,8 +109,11 @@ func (r *CodeHubWorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if err := validateForDeployment(cr); err != nil {
 		r.writeErrorStatus(ctx, cr, fmt.Sprintf("invalid spec: %v", err), clock)
-		// Invalid spec is a user error; don't requeue on a tight loop.
-		return ctrl.Result{}, nil
+		// Invalid spec is typically a user error, but after class merge it
+		// can also mean "Class was missing a default we need" — requeue on
+		// the normal cadence so the Workspace recovers automatically once
+		// the Class is edited. The 30s interval prevents a tight loop.
+		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
 
 	if err := r.ensureService(ctx, cr); err != nil {
@@ -353,7 +356,9 @@ func (r *CodeHubWorkspaceReconciler) writeSuccessStatus(
 		r.recordNormal(cr, eventReasonScaledDown, "Scaled deployment to %d replica(s)", desired)
 	}
 
-	_ = r.Status().Update(ctx, cr)
+	if err := r.Status().Update(ctx, cr); err != nil {
+		log.FromContext(ctx).Error(err, "status update (success)")
+	}
 }
 
 // writeStoreErrorStatus reports that the external store is unreachable
@@ -378,7 +383,9 @@ func (r *CodeHubWorkspaceReconciler) writeStoreErrorStatus(
 	})
 	r.recordWarning(cr, eventReasonStoreUnreachable, "%s", storeErr.Error())
 
-	_ = r.Status().Update(ctx, cr)
+	if err := r.Status().Update(ctx, cr); err != nil {
+		log.FromContext(ctx).Error(err, "status update (store error)")
+	}
 }
 
 // writeClassErrorStatus reports failure to resolve a referenced
@@ -393,6 +400,11 @@ func (r *CodeHubWorkspaceReconciler) writeClassErrorStatus(
 	cr.Status.Phase = runtimev1alpha1.PhaseError
 	cr.Status.ObservedGeneration = cr.Generation
 	cr.Status.LastEvaluatedTime = metav1.NewTime(clock.Now())
+	// Clear any stale resolvedClass from a prior successful reconcile. If
+	// this Workspace used to point at a Class that worked and then was
+	// repointed at one that doesn't (or the Class was deleted), leaving
+	// the old name here would contradict ClassResolved=False.
+	cr.Status.ResolvedClass = ""
 
 	meta.SetStatusCondition(&cr.Status.Conditions, metav1.Condition{
 		Type:    runtimev1alpha1.ConditionClassResolved,
@@ -402,7 +414,9 @@ func (r *CodeHubWorkspaceReconciler) writeClassErrorStatus(
 	})
 	r.recordWarning(cr, eventReasonReconcileError, "%s", classErr.Error())
 
-	_ = r.Status().Update(ctx, cr)
+	if err := r.Status().Update(ctx, cr); err != nil {
+		log.FromContext(ctx).Error(err, "status update (class error)")
+	}
 }
 
 // writeErrorStatus records a generic reconcile error.
@@ -424,7 +438,9 @@ func (r *CodeHubWorkspaceReconciler) writeErrorStatus(
 	})
 	r.recordWarning(cr, eventReasonReconcileError, "%s", msg)
 
-	_ = r.Status().Update(ctx, cr)
+	if err := r.Status().Update(ctx, cr); err != nil {
+		log.FromContext(ctx).Error(err, "status update (reconcile error)")
+	}
 }
 
 func (r *CodeHubWorkspaceReconciler) recordNormal(cr *runtimev1alpha1.CodeHubWorkspace, reason, msg string, args ...any) {
