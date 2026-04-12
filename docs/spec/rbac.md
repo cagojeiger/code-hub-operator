@@ -14,6 +14,7 @@
 
 | API group | Resources | Verbs | 이유 |
 |---|---|---|---|
+| `codehub.project-jelly.io` | `codehubworkspaceclasses` | `get;list;watch` | `spec.classRef` 해석용 Class 조회 |
 | `codehub.project-jelly.io` | `codehubworkspaces` | `get;list;watch` | 주 리소스 watch/조회 |
 | `codehub.project-jelly.io` | `codehubworkspaces/status` | `get;update` | status 서브리소스 업데이트 |
 | `apps` | `deployments` | `get;list;watch;create;update` | 자식 Deployment 생성·스케일 |
@@ -33,7 +34,7 @@ metadata:
   name: code-hub-operator-manager-role
 rules:
   - apiGroups: ["codehub.project-jelly.io"]
-    resources: ["codehubworkspaces"]
+    resources: ["codehubworkspaceclasses","codehubworkspaces"]
     verbs: ["get","list","watch"]
   - apiGroups: ["codehub.project-jelly.io"]
     resources: ["codehubworkspaces/status"]

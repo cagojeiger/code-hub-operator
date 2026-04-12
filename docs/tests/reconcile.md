@@ -28,10 +28,18 @@
 | 결측 키 | `NoLastUsedTreatedAsActive` | 키 없음은 active 처리 |
 | 외부 장애 | `StoreErrorPreservesReplicas` | store 에러 시 replicas 보존 |
 | 외부 장애 | `StoreErrorOnFirstReconcileStillCreatesDeployment` | 첫 reconcile store 에러여도 배포 생성 |
-| 입력 오류 | `InvalidSpecStopsWithoutRequeueLoop` | invalid spec 재큐 루프 방지 |
+| 입력 오류 | `InvalidSpecRequeuesOnNormalCadence` | invalid spec을 30s cadence로 재시도 |
+| 조회 | `NotFoundIsNoop` | 삭제된 CR 요청은 noop |
+| Class | `ClassRefRemovedClearsResolvedClassAndCondition` | classRef 제거 시 stale status 정리 |
+| Class | `ClassDeletedClearsStaleResolvedClass` | Class 삭제 후 stale resolvedClass 정리 |
+| Class | `MissingClassSetsClassNotFoundReason` | 누락 Class를 `ClassNotFound` reason으로 표기 |
+| Class | `ClassifyClassErrorReason` | NotFound/Access/Fetch 에러 분류 함수 검증 |
 | 멱등성 | `IdempotentUpdate` | 무변경 reconcile에서 RV 불변 |
 | spec 반영 | `ImageUpdatePropagates` | 이미지 변경 전파 |
 | spec 반영 | `ResourcesUpdatePropagates` | resources 변경 전파 |
+| 이벤트 | `EmitsScaleEvents` | scale-up 시 Normal 이벤트 기록 |
+| 이벤트 | `EmitsScaleDownEvents` | scale-down 시 Normal 이벤트 기록 |
+| 이벤트 | `StoreErrorEmitsWarningEvent` | store 장애 시 Warning 이벤트 기록 |
 | 드리프트 복구 | `ServiceMetadataDriftIsReconciled` | service labels/ownerRef 복구 |
 | 시간 제어 | `ClockAdvanceTriggersIdle` | sleep 없이 idle 전환 검증 |
 
