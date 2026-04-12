@@ -27,9 +27,10 @@ import (
 const requeueAfter = 30 * time.Second
 
 const (
-	eventReasonScaledUp       = "ScaledUp"
-	eventReasonScaledDown     = "ScaledDown"
-	eventReasonReconcileError = "ReconcileError"
+	eventReasonScaledUp         = "ScaledUp"
+	eventReasonScaledDown       = "ScaledDown"
+	eventReasonStoreUnreachable = "StoreUnreachable"
+	eventReasonReconcileError   = "ReconcileError"
 )
 
 // Clock is an injectable time source. Tests provide a fake clock; production
@@ -339,6 +340,7 @@ func (r *CodeHubRuntimeReconciler) writeStoreErrorStatus(
 		Reason:  "StoreError",
 		Message: storeErr.Error(),
 	})
+	r.recordWarning(cr, eventReasonStoreUnreachable, "%s", storeErr.Error())
 
 	_ = r.Status().Update(ctx, cr)
 }
@@ -360,7 +362,7 @@ func (r *CodeHubRuntimeReconciler) writeErrorStatus(
 		Reason:  "ReconcileError",
 		Message: msg,
 	})
-	r.recordWarning(cr, eventReasonReconcileError, msg)
+	r.recordWarning(cr, eventReasonReconcileError, "%s", msg)
 
 	_ = r.Status().Update(ctx, cr)
 }
