@@ -53,10 +53,10 @@ func NewRedisStore(client *redis.Client) *RedisStore
 오퍼레이터는 key 형식을 강제하지 않는다. CR의 `spec.lastUsedKey`를 그대로 쓴다. 다만 관례는 다음과 같다.
 
 ```
-runtime:<namespace>:<name>:last_used_at
+workspace:<namespace>:<name>:last_used_at
 ```
 
-예: `runtime:demo:demo-runtime:last_used_at`
+예: `workspace:demo:demo-workspace:last_used_at`
 
 ### Value 포맷
 

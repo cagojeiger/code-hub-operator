@@ -9,8 +9,17 @@ resources:
     namespaced: true
   controller: true
   domain: project-jelly.io
-  group: runtime
+  group: codehub
   kind: CodeHubWorkspace
+  path: github.com/cagojeiger/code-hub-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: false
+  controller: false
+  domain: project-jelly.io
+  group: codehub
+  kind: CodeHubWorkspaceClass
   path: github.com/cagojeiger/code-hub-operator/api/v1alpha1
   version: v1alpha1
 version: "3"

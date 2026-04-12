@@ -17,6 +17,7 @@ last-used value is treated as active so freshly-created runtimes are not
 scaled down on their first reconcile.
 
 See `config/samples/codehub_v1alpha1_codehubworkspace.yaml` for an example CR.
+Class defaults are defined by `CodeHubWorkspaceClass` and referenced via `spec.classRef`.
 
 ## Build / test
 
@@ -52,7 +53,7 @@ observes "meaningful use" (the app, gateway, or a sidecar) writes the
 current Unix epoch seconds to Redis at the key named in `spec.lastUsedKey`:
 
 ```bash
-redis-cli SET runtime:demo:demo-runtime:last_used_at $(date +%s)
+redis-cli SET workspace:demo:demo-workspace:last_used_at $(date +%s)
 ```
 
 Every reconcile (every 30s by default) the operator reads that key, compares

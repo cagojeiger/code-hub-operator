@@ -9,11 +9,13 @@ type CodeHubWorkspaceReconciler struct {
     client.Client
     Scheme *runtime.Scheme
     Store  store.LastUsedStore
+    Recorder record.EventRecorder
     Clock  Clock // optional; nil이면 real time
 }
 ```
 
 - **`Store`**: `internal/store` 패키지의 `LastUsedStore` 인터페이스. 프로덕션은 `RedisStore`, 테스트는 `FakeStore`.
+- **`Recorder`**: Kubernetes Event 기록기. `nil`이면 이벤트를 기록하지 않는다.
 - **`Clock`**: `time.Now()` 주입점. 테스트에서 `fixedClock`으로 대체.
 
 ## Watch 대상
@@ -131,8 +133,10 @@ if storeErr != nil {
 | `podTemplateEquivalent(a, b)` | `deployment.go` | 우리가 관리하는 필드만 좁게 비교해 무의미한 업데이트를 막는다 |
 | `envFromMap(m)` | `deployment.go` | 맵을 **정렬된** `[]EnvVar`로 변환 → reconcile 결정성 확보 |
 | `servicePortsEqual`, `selectorsEqual` | `service.go` | Service용 좁은 동등성 비교 |
+| `applyClassDefaults`, `classifyClassErrorReason` | `workspaceclass_merge.go` / `codehubworkspace_controller.go` | Class merge + class 에러 분류 |
 | `ensureService`, `ensureDeployment`, `ensureDeploymentPreserveReplicas`, `observeReady` | `codehubworkspace_controller.go` | Reconcile 내부 단계 |
-| `writeSuccessStatus`, `writeStoreErrorStatus`, `writeErrorStatus` | `codehubworkspace_controller.go` | status 기록 3종 |
+| `writeSuccessStatus`, `writeStoreErrorStatus`, `writeClassErrorStatus`, `writeErrorStatus` | `codehubworkspace_controller.go` | status 기록 |
+| `recordNormal`, `recordWarning` | `codehubworkspace_controller.go` | Kubernetes Event 발행 helper |
 
 ## Clock 주입
 
@@ -145,10 +149,24 @@ func (realClock) Now() time.Time { return time.Now() }
 - 프로덕션: `r.Clock == nil` → `realClock{}`
 - 테스트: `fixedClock{t: ...}` 주입 → 테스트가 `sleep` 없이 "30분 경과"를 시뮬레이션.
 
+## 이벤트 기록
+
+오퍼레이터는 v1에서 Event 기록을 사용한다.
+
+- Normal:
+  - `ScaledUp`
+  - `ScaledDown`
+- Warning:
+  - `StoreUnreachable`
+  - `ReconcileError`
+
+구현 함수:
+- `recordNormal`
+- `recordWarning`
+
 ## v1에 **없는** 것 (의도적 제외)
 
 - **Finalizer**: 삭제 정리를 `ownerReferences` GC에 위임. Redis 키 정리나 외부 리소스 해제는 v1 범위가 아니다.
 - **Admission webhook**: validation은 CRD OpenAPI schema + `validateForDeployment()`로만.
 - **Multi-Kind reconciler**: 1 controller = 1 Kind 원칙을 지킨다.
 - **In-place resize / HPA 연동 / VPA**: v1beta1 이후 검토.
-- **Events 기록**: 스케일 액션(`ScaleToOne`, `ScaleToZero`)과 일반 reconcile 에러를 Kubernetes Event로 기록한다.

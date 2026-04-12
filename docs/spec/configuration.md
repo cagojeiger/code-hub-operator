@@ -74,10 +74,12 @@ if err := (&controller.CodeHubWorkspaceReconciler{
     Client: mgr.GetClient(),
     Scheme: mgr.GetScheme(),
     Store:  lastUsedStore,
+    Recorder: mgr.GetEventRecorderFor("codehubworkspace-controller"),
 }).SetupWithManager(mgr); err != nil { ... }
 ```
 
 - **`Clock`은 주입하지 않는다** → `nil` → `realClock{}` 사용
+- **`Recorder`는 manager에서 주입**되어 scale/장애 이벤트를 Kubernetes Event로 기록한다.
 - **Redis 클라이언트는 단 하나** 생성해 공유. `go-redis`는 내부 커넥션 풀을 관리한다.
 
 ## Health Probes
