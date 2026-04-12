@@ -45,8 +45,8 @@ ctrl.NewControllerManagedBy(mgr).
    ```
    CR가 이미 지워졌으면 noop 종료. ownerRef 기반 GC가 나머지를 정리한다.
 
-2. **Spec validation**
-   `validateForDeployment(cr)` (in `internal/controller/deployment.go`) 호출. 실패하면 `Phase=Error` 상태만 남기고 **requeue 없이** 종료한다. 사용자 실수에 대해 타이트 루프 재시도를 하지 않기 위함.
+2. **Class 머지 + Spec validation**
+   먼저 `applyClassDefaults(ctx, client, cr)`로 `spec.classRef`를 해석해 defaults를 합친다. 이후 `validateForDeployment(cr)` (in `internal/controller/deployment.go`)를 호출한다. validation 실패 시 `Phase=Error`를 남기고 **30초 주기로 requeue**한다. (Class 수정으로 자동 복구 가능하게 유지)
 
 3. **Service 보장**
    `ensureService(ctx, cr)`. 없으면 생성, 있으면 우리가 관리하는 필드(`ports`, `selector`, labels)만 업데이트. `clusterIP` 등 API 서버가 할당하는 필드는 건드리지 않는다.
@@ -115,7 +115,7 @@ if storeErr != nil {
 
 ### 3. Invalid spec
 
-- `writeErrorStatus`로 `Phase=Error` 기록 후 `ctrl.Result{}` (requeue 없음) 반환.
+- `writeErrorStatus`로 `Phase=Error` 기록 후 `ctrl.Result{RequeueAfter: 30s}` 반환.
 
 ### 4. Status update 자체가 실패
 
