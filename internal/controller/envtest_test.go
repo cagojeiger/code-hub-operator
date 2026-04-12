@@ -76,8 +76,8 @@ func newEnvtestNamespace(t *testing.T, c client.Client, prefix string) string {
 	return name
 }
 
-func newEnvtestReconciler(c client.Client, s store.LastUsedStore, clk Clock) *CodeHubRuntimeReconciler {
-	return &CodeHubRuntimeReconciler{
+func newEnvtestReconciler(c client.Client, s store.LastUsedStore, clk Clock) *CodeHubWorkspaceReconciler {
+	return &CodeHubWorkspaceReconciler{
 		Client: c,
 		Scheme: testScheme,
 		Store:  s,
@@ -85,10 +85,10 @@ func newEnvtestReconciler(c client.Client, s store.LastUsedStore, clk Clock) *Co
 	}
 }
 
-func baseCR(name, ns string) *runtimev1alpha1.CodeHubRuntime {
-	return &runtimev1alpha1.CodeHubRuntime{
+func baseCR(name, ns string) *runtimev1alpha1.CodeHubWorkspace {
+	return &runtimev1alpha1.CodeHubWorkspace{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
-		Spec: runtimev1alpha1.CodeHubRuntimeSpec{
+		Spec: runtimev1alpha1.CodeHubWorkspaceSpec{
 			Image:              "nginx:alpine",
 			ImagePullPolicy:    corev1.PullIfNotPresent,
 			ServicePort:        80,
@@ -150,7 +150,7 @@ func TestEnvtest_ReconcileCreatesChildren(t *testing.T) {
 	require.Len(t, svc.OwnerReferences, 1, "Service must be owned by the CR")
 
 	// Status subresource must be populated by reconcile.
-	var got runtimev1alpha1.CodeHubRuntime
+	var got runtimev1alpha1.CodeHubWorkspace
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: cr.Name, Namespace: ns}, &got))
 	require.Equal(t, runtimev1alpha1.PhaseRunning, got.Status.Phase)
 	require.Equal(t, int32(1), got.Status.DesiredReplicas)
@@ -184,7 +184,7 @@ func TestEnvtest_ChildrenHaveControllerOwnerRef(t *testing.T) {
 	require.Len(t, dep.OwnerReferences, 1, "Deployment must have exactly one ownerRef")
 	depOwner := dep.OwnerReferences[0]
 	require.Equal(t, cr.Name, depOwner.Name)
-	require.Equal(t, "CodeHubRuntime", depOwner.Kind)
+	require.Equal(t, "CodeHubWorkspace", depOwner.Kind)
 	require.NotNil(t, depOwner.Controller, "Deployment ownerRef must set Controller=true for GC to cascade")
 	require.True(t, *depOwner.Controller)
 	require.NotNil(t, depOwner.BlockOwnerDeletion)
@@ -224,7 +224,7 @@ func TestEnvtest_StoreErrorPreservesReplicas(t *testing.T) {
 	require.Equal(t, int32(1), *dep.Spec.Replicas,
 		"store-unreachable path must create Deployment at maxReplicas, never 0")
 
-	var got runtimev1alpha1.CodeHubRuntime
+	var got runtimev1alpha1.CodeHubWorkspace
 	require.NoError(t, c.Get(ctx, types.NamespacedName{Name: cr.Name, Namespace: ns}, &got))
 
 	var reachable *metav1.Condition
@@ -258,14 +258,14 @@ func TestEnvtest_StatusSubresource(t *testing.T) {
 
 	// Mutate spec locally, then call Status().Update — spec change must
 	// be ignored by the apiserver because status subresource is declared.
-	var fetched runtimev1alpha1.CodeHubRuntime
+	var fetched runtimev1alpha1.CodeHubWorkspace
 	require.NoError(t, c.Get(ctx, types.NamespacedName{Name: cr.Name, Namespace: ns}, &fetched))
 	originalImage := fetched.Spec.Image
 	fetched.Spec.Image = "should-not-persist"
 	fetched.Status.Phase = "CustomPhaseForTest"
 	require.NoError(t, c.Status().Update(ctx, &fetched))
 
-	var reread runtimev1alpha1.CodeHubRuntime
+	var reread runtimev1alpha1.CodeHubWorkspace
 	require.NoError(t, c.Get(ctx, types.NamespacedName{Name: cr.Name, Namespace: ns}, &reread))
 	require.Equal(t, originalImage, reread.Spec.Image,
 		"Status().Update must not persist spec mutations")

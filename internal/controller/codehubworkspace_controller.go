@@ -43,8 +43,8 @@ type realClock struct{}
 
 func (realClock) Now() time.Time { return time.Now() }
 
-// CodeHubRuntimeReconciler reconciles a CodeHubRuntime object.
-type CodeHubRuntimeReconciler struct {
+// CodeHubWorkspaceReconciler reconciles a CodeHubWorkspace object.
+type CodeHubWorkspaceReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Store  store.LastUsedStore
@@ -54,14 +54,14 @@ type CodeHubRuntimeReconciler struct {
 	Clock Clock
 }
 
-// +kubebuilder:rbac:groups=runtime.project-jelly.io,resources=codehubruntimes,verbs=get;list;watch
-// +kubebuilder:rbac:groups=runtime.project-jelly.io,resources=codehubruntimes/status,verbs=get;update
+// +kubebuilder:rbac:groups=codehub.project-jelly.io,resources=codehubworkspaces,verbs=get;list;watch
+// +kubebuilder:rbac:groups=codehub.project-jelly.io,resources=codehubworkspaces/status,verbs=get;update
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
 
-// Reconcile drives a CodeHubRuntime towards its desired state.
+// Reconcile drives a CodeHubWorkspace towards its desired state.
 //
 // Flow (see plan/§5.2):
 //  1. Fetch CR; missing = noop
@@ -74,11 +74,11 @@ type CodeHubRuntimeReconciler struct {
 //
 // Error paths are meant to be non-fatal: replicas are preserved when the
 // external store is unreachable.
-func (r *CodeHubRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *CodeHubWorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	clock := r.clock()
 
-	cr := &runtimev1alpha1.CodeHubRuntime{}
+	cr := &runtimev1alpha1.CodeHubWorkspace{}
 	if err := r.Get(ctx, req.NamespacedName, cr); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -143,7 +143,7 @@ func (r *CodeHubRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	return ctrl.Result{RequeueAfter: requeueAfter}, nil
 }
 
-func (r *CodeHubRuntimeReconciler) clock() Clock {
+func (r *CodeHubWorkspaceReconciler) clock() Clock {
 	if r.Clock != nil {
 		return r.Clock
 	}
@@ -151,7 +151,7 @@ func (r *CodeHubRuntimeReconciler) clock() Clock {
 }
 
 // ensureService creates or updates the owned Service.
-func (r *CodeHubRuntimeReconciler) ensureService(ctx context.Context, cr *runtimev1alpha1.CodeHubRuntime) error {
+func (r *CodeHubWorkspaceReconciler) ensureService(ctx context.Context, cr *runtimev1alpha1.CodeHubWorkspace) error {
 	existing := &corev1.Service{}
 	err := r.Get(ctx, types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, existing)
 	if apierrors.IsNotFound(err) {
@@ -187,9 +187,9 @@ func (r *CodeHubRuntimeReconciler) ensureService(ctx context.Context, cr *runtim
 // ensureDeployment creates the Deployment with the given desired replicas,
 // or updates the replicas and template of an existing one. It returns the
 // scale action taken, the ready replica count, and an error.
-func (r *CodeHubRuntimeReconciler) ensureDeployment(
+func (r *CodeHubWorkspaceReconciler) ensureDeployment(
 	ctx context.Context,
-	cr *runtimev1alpha1.CodeHubRuntime,
+	cr *runtimev1alpha1.CodeHubWorkspace,
 	desired int32,
 ) (string, int32, error) {
 	existing := &appsv1.Deployment{}
@@ -253,7 +253,7 @@ func (r *CodeHubRuntimeReconciler) ensureDeployment(
 // ensureDeploymentPreserveReplicas is used on the store-error path. It
 // creates the Deployment at MaxReplicas if it is missing, otherwise leaves
 // it alone. It never touches replicas on an existing Deployment.
-func (r *CodeHubRuntimeReconciler) ensureDeploymentPreserveReplicas(ctx context.Context, cr *runtimev1alpha1.CodeHubRuntime) error {
+func (r *CodeHubWorkspaceReconciler) ensureDeploymentPreserveReplicas(ctx context.Context, cr *runtimev1alpha1.CodeHubWorkspace) error {
 	existing := &appsv1.Deployment{}
 	err := r.Get(ctx, types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, existing)
 	if apierrors.IsNotFound(err) {
@@ -268,7 +268,7 @@ func (r *CodeHubRuntimeReconciler) ensureDeploymentPreserveReplicas(ctx context.
 
 // observeReady returns the Deployment's readyReplicas, or 0 if the
 // Deployment can't be read.
-func (r *CodeHubRuntimeReconciler) observeReady(ctx context.Context, cr *runtimev1alpha1.CodeHubRuntime) int32 {
+func (r *CodeHubWorkspaceReconciler) observeReady(ctx context.Context, cr *runtimev1alpha1.CodeHubWorkspace) int32 {
 	dep := &appsv1.Deployment{}
 	if err := r.Get(ctx, types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, dep); err != nil {
 		return 0
@@ -277,9 +277,9 @@ func (r *CodeHubRuntimeReconciler) observeReady(ctx context.Context, cr *runtime
 }
 
 // writeSuccessStatus is the happy-path status writer.
-func (r *CodeHubRuntimeReconciler) writeSuccessStatus(
+func (r *CodeHubWorkspaceReconciler) writeSuccessStatus(
 	ctx context.Context,
-	cr *runtimev1alpha1.CodeHubRuntime,
+	cr *runtimev1alpha1.CodeHubWorkspace,
 	phase string,
 	desired, ready int32,
 	scaleAction string,
@@ -322,9 +322,9 @@ func (r *CodeHubRuntimeReconciler) writeSuccessStatus(
 
 // writeStoreErrorStatus reports that the external store is unreachable
 // without asserting any phase other than Error.
-func (r *CodeHubRuntimeReconciler) writeStoreErrorStatus(
+func (r *CodeHubWorkspaceReconciler) writeStoreErrorStatus(
 	ctx context.Context,
-	cr *runtimev1alpha1.CodeHubRuntime,
+	cr *runtimev1alpha1.CodeHubWorkspace,
 	storeErr error,
 	ready int32,
 	clock Clock,
@@ -346,9 +346,9 @@ func (r *CodeHubRuntimeReconciler) writeStoreErrorStatus(
 }
 
 // writeErrorStatus records a generic reconcile error.
-func (r *CodeHubRuntimeReconciler) writeErrorStatus(
+func (r *CodeHubWorkspaceReconciler) writeErrorStatus(
 	ctx context.Context,
-	cr *runtimev1alpha1.CodeHubRuntime,
+	cr *runtimev1alpha1.CodeHubWorkspace,
 	msg string,
 	clock Clock,
 ) {
@@ -367,14 +367,14 @@ func (r *CodeHubRuntimeReconciler) writeErrorStatus(
 	_ = r.Status().Update(ctx, cr)
 }
 
-func (r *CodeHubRuntimeReconciler) recordNormal(cr *runtimev1alpha1.CodeHubRuntime, reason, msg string, args ...any) {
+func (r *CodeHubWorkspaceReconciler) recordNormal(cr *runtimev1alpha1.CodeHubWorkspace, reason, msg string, args ...any) {
 	if r.Recorder == nil {
 		return
 	}
 	r.Recorder.Eventf(cr, corev1.EventTypeNormal, reason, msg, args...)
 }
 
-func (r *CodeHubRuntimeReconciler) recordWarning(cr *runtimev1alpha1.CodeHubRuntime, reason, msg string, args ...any) {
+func (r *CodeHubWorkspaceReconciler) recordWarning(cr *runtimev1alpha1.CodeHubWorkspace, reason, msg string, args ...any) {
 	if r.Recorder == nil {
 		return
 	}
@@ -383,9 +383,9 @@ func (r *CodeHubRuntimeReconciler) recordWarning(cr *runtimev1alpha1.CodeHubRunt
 
 // SetupWithManager registers this reconciler with the manager and wires
 // up watches for the primary resource and owned children.
-func (r *CodeHubRuntimeReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *CodeHubWorkspaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&runtimev1alpha1.CodeHubRuntime{}).
+		For(&runtimev1alpha1.CodeHubWorkspace{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
 		Complete(r)

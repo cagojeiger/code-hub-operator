@@ -35,7 +35,7 @@ require.NotNil(t, dep.Spec.Replicas)
 require.Equal(t, int32(1), *dep.Spec.Replicas)
 
 wantSelector := map[string]string{
-    "app.kubernetes.io/name":     "codehubruntime",
+    "app.kubernetes.io/name":     "codehubworkspace",
     "app.kubernetes.io/instance": "demo",
 }
 require.Equal(t, wantSelector, dep.Spec.Selector.MatchLabels)
@@ -79,7 +79,7 @@ require.Equal(t, []corev1.EnvVar{
 ```go
 cases := []struct {
     name    string
-    cr      *runtimev1alpha1.CodeHubRuntime
+    cr      *runtimev1alpha1.CodeHubWorkspace
     wantErr bool
 }{
     {"ok",              crWithAll(),        false},

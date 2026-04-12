@@ -10,7 +10,7 @@ resources:
   controller: true
   domain: project-jelly.io
   group: runtime
-  kind: CodeHubRuntime
+  kind: CodeHubWorkspace
   path: github.com/cagojeiger/code-hub-operator/api/v1alpha1
   version: v1alpha1
 version: "3"

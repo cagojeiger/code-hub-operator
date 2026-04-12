@@ -4,16 +4,16 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.5
-  name: codehubruntimes.runtime.project-jelly.io
+  name: codehubworkspaces.codehub.project-jelly.io
 spec:
-  group: runtime.project-jelly.io
+  group: codehub.project-jelly.io
   names:
-    kind: CodeHubRuntime
-    listKind: CodeHubRuntimeList
-    plural: codehubruntimes
+    kind: CodeHubWorkspace
+    listKind: CodeHubWorkspaceList
+    plural: codehubworkspaces
     shortNames:
     - chr
-    singular: codehubruntime
+    singular: codehubworkspace
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -32,7 +32,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: CodeHubRuntime is the Schema for the codehubruntimes API.
+        description: CodeHubWorkspace is the Schema for the codehubworkspaces API.
         properties:
           apiVersion:
             description: |-
@@ -52,7 +52,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: CodeHubRuntimeSpec defines the desired state of a single
+            description: CodeHubWorkspaceSpec defines the desired state of a single
               runtime instance.
             properties:
               containerPort:
@@ -181,7 +181,7 @@ spec:
             type: object
           status:
             description: |-
-              CodeHubRuntimeStatus is the observed state of a CodeHubRuntime.
+              CodeHubWorkspaceStatus is the observed state of a CodeHubWorkspace.
               Status holds only summary values; the authoritative last-used timestamp
               lives in the external store, never here.
             properties:

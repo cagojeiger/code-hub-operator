@@ -1,6 +1,6 @@
 # Reconcile Tests
 
-파일: `internal/controller/codehubruntime_controller_test.go`
+파일: `internal/controller/codehubworkspace_controller_test.go`
 
 ## 목적
 
@@ -13,7 +13,7 @@
   |- fake client (status subresource 포함)
   |- FakeStore
   |- fixedClock
-  \- CodeHubRuntimeReconciler
+  \- CodeHubWorkspaceReconciler
 ```
 
 ## 핵심 시나리오 매트릭스

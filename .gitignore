@@ -30,6 +30,12 @@ go.work.sum
 # Build output + local tooling (setup-envtest, manager binary)
 bin/
 
+# Local upstream-source clones used for reference only; never committed
+.repos/
+
+# OMC session state
+.omc/
+
 # Editor/IDE
 # .idea/
 # .vscode/

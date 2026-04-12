@@ -40,12 +40,12 @@ mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
     Metrics:                metricsserver.Options{BindAddress: metricsAddr},
     HealthProbeBindAddress: probeAddr,
     LeaderElection:         enableLeaderElection,
-    LeaderElectionID:       "code-hub-operator.runtime.project-jelly.io",
+    LeaderElectionID:       "code-hub-operator.codehub.project-jelly.io",
 })
 ```
 
-- **`Scheme`**: 빌트인 k8s 타입(`clientgoscheme`) + `runtime.project-jelly.io/v1alpha1`
-- **Leader election ID**: `code-hub-operator.runtime.project-jelly.io` (고정)
+- **`Scheme`**: 빌트인 k8s 타입(`clientgoscheme`) + `codehub.project-jelly.io/v1alpha1`
+- **Leader election ID**: `code-hub-operator.codehub.project-jelly.io` (고정)
 - `ctrl.GetConfigOrDie()`: `KUBECONFIG` env / `~/.kube/config` / in-cluster config 순으로 찾는다
 
 ## Scheme 등록
@@ -70,7 +70,7 @@ redisClient := redis.NewClient(&redis.Options{
 })
 lastUsedStore := store.NewRedisStore(redisClient)
 
-if err := (&controller.CodeHubRuntimeReconciler{
+if err := (&controller.CodeHubWorkspaceReconciler{
     Client: mgr.GetClient(),
     Scheme: mgr.GetScheme(),
     Store:  lastUsedStore,

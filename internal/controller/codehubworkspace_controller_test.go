@@ -34,7 +34,7 @@ type testEnv struct {
 	client client.Client
 	store  *store.FakeStore
 	clock  *fixedClock
-	rec    *CodeHubRuntimeReconciler
+	rec    *CodeHubWorkspaceReconciler
 }
 
 func newTestEnv(t *testing.T, objs ...client.Object) *testEnv {
@@ -47,13 +47,13 @@ func newTestEnv(t *testing.T, objs ...client.Object) *testEnv {
 	c := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithObjects(objs...).
-		WithStatusSubresource(&runtimev1alpha1.CodeHubRuntime{}).
+		WithStatusSubresource(&runtimev1alpha1.CodeHubWorkspace{}).
 		Build()
 
 	fs := store.NewFakeStore()
 	clk := &fixedClock{t: time.Date(2026, 4, 11, 12, 0, 0, 0, time.UTC)}
 
-	rec := &CodeHubRuntimeReconciler{
+	rec := &CodeHubWorkspaceReconciler{
 		Client: c,
 		Scheme: scheme,
 		Store:  fs,
@@ -78,9 +78,9 @@ func (e *testEnv) reconcileExpectErr(name, ns string) (ctrl.Result, error) {
 	})
 }
 
-func (e *testEnv) getCR(name, ns string) *runtimev1alpha1.CodeHubRuntime {
+func (e *testEnv) getCR(name, ns string) *runtimev1alpha1.CodeHubWorkspace {
 	e.t.Helper()
-	cr := &runtimev1alpha1.CodeHubRuntime{}
+	cr := &runtimev1alpha1.CodeHubWorkspace{}
 	require.NoError(e.t, e.client.Get(context.Background(),
 		types.NamespacedName{Name: name, Namespace: ns}, cr))
 	return cr
@@ -113,14 +113,14 @@ func (e *testEnv) getService(name, ns string) *corev1.Service {
 	return svc
 }
 
-func sampleRuntime() *runtimev1alpha1.CodeHubRuntime {
-	return &runtimev1alpha1.CodeHubRuntime{
+func sampleRuntime() *runtimev1alpha1.CodeHubWorkspace {
+	return &runtimev1alpha1.CodeHubWorkspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       "demo",
 			Namespace:  "default",
 			Generation: 1,
 		},
-		Spec: runtimev1alpha1.CodeHubRuntimeSpec{
+		Spec: runtimev1alpha1.CodeHubWorkspaceSpec{
 			Image:              "ghcr.io/acme/demo:0.1.0",
 			ImagePullPolicy:    corev1.PullIfNotPresent,
 			ServicePort:        80,
@@ -158,7 +158,7 @@ func TestReconcile_CreatesDeploymentAndService(t *testing.T) {
 	require.Equal(t, cr.Spec.Image, dep.Spec.Template.Spec.Containers[0].Image)
 	require.Len(t, dep.OwnerReferences, 1, "deployment should have ownerRef")
 	require.Equal(t, cr.Name, dep.OwnerReferences[0].Name)
-	require.Equal(t, "CodeHubRuntime", dep.OwnerReferences[0].Kind)
+	require.Equal(t, "CodeHubWorkspace", dep.OwnerReferences[0].Kind)
 
 	svc := env.getService(cr.Name, cr.Namespace)
 	require.Equal(t, int32(80), svc.Spec.Ports[0].Port)
@@ -481,7 +481,7 @@ func TestReconcile_ServiceMetadataDriftIsReconciled(t *testing.T) {
 	require.Equal(t, objectLabels(cr), reconciled.Labels)
 	require.Len(t, reconciled.OwnerReferences, 1, "service ownerRef drift should be repaired")
 	require.Equal(t, cr.Name, reconciled.OwnerReferences[0].Name)
-	require.Equal(t, "CodeHubRuntime", reconciled.OwnerReferences[0].Kind)
+	require.Equal(t, "CodeHubWorkspace", reconciled.OwnerReferences[0].Kind)
 }
 
 func TestReconcile_ClockAdvanceTriggersIdle(t *testing.T) {

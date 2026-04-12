@@ -14,7 +14,7 @@ v1alpha1 기준 핵심 구조만 간단히 정리한다.
                         ^                                ^
                         |                                |
                         +------------ ownerRef ----------+
-                                   [CodeHubRuntime CR]
+                                   [CodeHubWorkspace CR]
 ```
 
 ## 2) 운영 규칙
@@ -40,7 +40,7 @@ v1alpha1 기준 핵심 구조만 간단히 정리한다.
 
 ## 4) 소유 리소스
 
-- `CodeHubRuntime` 1개당 `Deployment` 1개 + `Service` 1개
+- `CodeHubWorkspace` 1개당 `Deployment` 1개 + `Service` 1개
 - 이름/네임스페이스는 CR과 동일
 - `ownerReferences`로 GC 연동
 

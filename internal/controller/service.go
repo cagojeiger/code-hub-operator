@@ -8,8 +8,8 @@ import (
 	runtimev1alpha1 "github.com/cagojeiger/code-hub-operator/api/v1alpha1"
 )
 
-// buildService renders the desired Service for a CodeHubRuntime.
-func buildService(cr *runtimev1alpha1.CodeHubRuntime) *corev1.Service {
+// buildService renders the desired Service for a CodeHubWorkspace.
+func buildService(cr *runtimev1alpha1.CodeHubWorkspace) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
