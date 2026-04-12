@@ -272,3 +272,121 @@ func TestEnvtest_StatusSubresource(t *testing.T) {
 	require.Equal(t, "CustomPhaseForTest", reread.Status.Phase,
 		"Status().Update must persist status mutations")
 }
+
+// TestEnvtest_ClassDefaultsInheritedByWorkspace proves that a Workspace
+// referencing a CodeHubWorkspaceClass gets its unset fields filled from
+// the Class via a real apiserver round-trip, and that the created
+// Deployment's container uses the inherited image.
+func TestEnvtest_ClassDefaultsInheritedByWorkspace(t *testing.T) {
+	c := newEnvtestClient(t)
+	ns := newEnvtestNamespace(t, c, "class-inherit")
+	ctx := context.Background()
+
+	className := fmt.Sprintf("class-%d", time.Now().UnixNano())
+	class := &runtimev1alpha1.CodeHubWorkspaceClass{
+		ObjectMeta: metav1.ObjectMeta{Name: className},
+		Spec: runtimev1alpha1.CodeHubWorkspaceClassSpec{
+			Image:              "ghcr.io/acme/classy:v1",
+			ImagePullPolicy:    corev1.PullIfNotPresent,
+			ServicePort:        80,
+			ContainerPort:      8080,
+			IdleTimeoutSeconds: 300,
+		},
+	}
+	require.NoError(t, c.Create(ctx, class))
+	t.Cleanup(func() { _ = c.Delete(ctx, class) })
+
+	ws := &runtimev1alpha1.CodeHubWorkspace{
+		ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: ns},
+		Spec: runtimev1alpha1.CodeHubWorkspaceSpec{
+			ClassRef:    className,
+			MinReplicas: 0,
+			MaxReplicas: 1,
+			LastUsedKey: "runtime:test:class-inherit:last_used_at",
+			// Deliberately omits image/ports/idleTimeout — must come from Class
+		},
+	}
+	require.NoError(t, c.Create(ctx, ws))
+
+	rec := newEnvtestReconciler(c, store.NewFakeStore(), nil)
+	_, err := rec.Reconcile(ctx, ctrl.Request{
+		NamespacedName: types.NamespacedName{Name: ws.Name, Namespace: ns},
+	})
+	require.NoError(t, err)
+
+	var dep appsv1.Deployment
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Name: ws.Name, Namespace: ns}, &dep))
+	require.Len(t, dep.Spec.Template.Spec.Containers, 1)
+	container := dep.Spec.Template.Spec.Containers[0]
+	require.Equal(t, "ghcr.io/acme/classy:v1", container.Image,
+		"container image must come from the referenced Class")
+	require.Len(t, container.Ports, 1)
+	require.Equal(t, int32(8080), container.Ports[0].ContainerPort,
+		"containerPort must come from Class")
+
+	var svc corev1.Service
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Name: ws.Name, Namespace: ns}, &svc))
+	require.Equal(t, int32(80), svc.Spec.Ports[0].Port,
+		"servicePort must come from Class")
+
+	// Status should advertise the resolved class and carry ClassResolved=True.
+	var got runtimev1alpha1.CodeHubWorkspace
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Name: ws.Name, Namespace: ns}, &got))
+	require.Equal(t, className, got.Status.ResolvedClass)
+	var resolved *metav1.Condition
+	for i := range got.Status.Conditions {
+		if got.Status.Conditions[i].Type == runtimev1alpha1.ConditionClassResolved {
+			resolved = &got.Status.Conditions[i]
+			break
+		}
+	}
+	require.NotNil(t, resolved, "ClassResolved condition must be set")
+	require.Equal(t, metav1.ConditionTrue, resolved.Status)
+}
+
+// TestEnvtest_MissingClassRefIsReportedAsError proves that referencing an
+// unknown Class produces an Error phase with a ClassResolved=False condition
+// rather than panicking or silently skipping the merge.
+func TestEnvtest_MissingClassRefIsReportedAsError(t *testing.T) {
+	c := newEnvtestClient(t)
+	ns := newEnvtestNamespace(t, c, "missing-class")
+	ctx := context.Background()
+
+	ws := &runtimev1alpha1.CodeHubWorkspace{
+		ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: ns},
+		Spec: runtimev1alpha1.CodeHubWorkspaceSpec{
+			ClassRef:    "does-not-exist",
+			Image:       "ghcr.io/x/y:1", // still set so validation would otherwise pass
+			ServicePort: 80, ContainerPort: 8080, IdleTimeoutSeconds: 60,
+			MinReplicas: 0, MaxReplicas: 1,
+			LastUsedKey: "runtime:test:missing-class:last_used_at",
+		},
+	}
+	require.NoError(t, c.Create(ctx, ws))
+
+	rec := newEnvtestReconciler(c, store.NewFakeStore(), nil)
+	_, err := rec.Reconcile(ctx, ctrl.Request{
+		NamespacedName: types.NamespacedName{Name: ws.Name, Namespace: ns},
+	})
+	require.NoError(t, err, "reconcile must not fail hard on class-not-found")
+
+	var got runtimev1alpha1.CodeHubWorkspace
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Name: ws.Name, Namespace: ns}, &got))
+	require.Equal(t, runtimev1alpha1.PhaseError, got.Status.Phase)
+
+	var resolved *metav1.Condition
+	for i := range got.Status.Conditions {
+		if got.Status.Conditions[i].Type == runtimev1alpha1.ConditionClassResolved {
+			resolved = &got.Status.Conditions[i]
+			break
+		}
+	}
+	require.NotNil(t, resolved, "ClassResolved condition must be set")
+	require.Equal(t, metav1.ConditionFalse, resolved.Status)
+	require.Contains(t, resolved.Message, "does-not-exist")
+
+	// No children should have been created when the Class is missing.
+	var dep appsv1.Deployment
+	err = c.Get(ctx, types.NamespacedName{Name: ws.Name, Namespace: ns}, &dep)
+	require.Error(t, err, "Deployment must not be created when Class is missing")
+}

@@ -5,53 +5,79 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// CodeHubWorkspaceSpec defines the desired state of a single runtime instance.
+// CodeHubWorkspaceSpec defines the desired state of a single workspace
+// instance. Fields that can reasonably come from a CodeHubWorkspaceClass are
+// optional here — the reconciler merges the referenced Class before validating.
+// Workspace values always win over Class values.
 type CodeHubWorkspaceSpec struct {
-	// Image is the container image to run.
-	// +kubebuilder:validation:MinLength=1
-	Image string `json:"image"`
+	// ClassRef is the name of a cluster-scoped CodeHubWorkspaceClass whose
+	// defaults should be inherited by this Workspace. Optional. When set,
+	// the reconciler fetches the Class and fills any unset fields below
+	// before reconciling children. When unset, only values directly on
+	// this Spec are used.
+	// +optional
+	ClassRef string `json:"classRef,omitempty"`
 
-	// ImagePullPolicy for the container. Defaults to IfNotPresent.
+	// Image is the container image to run. Optional — may come from the
+	// referenced Class. The merged value must be non-empty or reconcile
+	// fails with a Ready=False condition.
+	// +optional
+	Image string `json:"image,omitempty"`
+
+	// ImagePullPolicy for the container. Optional — may come from the
+	// referenced Class. When neither Workspace nor Class sets it, the
+	// reconciler falls back to IfNotPresent.
 	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
-	// +kubebuilder:default=IfNotPresent
 	// +optional
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
-	// ServicePort is the port the Service exposes.
+	// ServicePort is the port the Service exposes. Optional — may come
+	// from the referenced Class.
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
-	ServicePort int32 `json:"servicePort"`
+	// +optional
+	ServicePort int32 `json:"servicePort,omitempty"`
 
-	// ContainerPort is the port the container listens on.
+	// ContainerPort is the port the container listens on. Optional — may
+	// come from the referenced Class.
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
-	ContainerPort int32 `json:"containerPort"`
+	// +optional
+	ContainerPort int32 `json:"containerPort,omitempty"`
 
-	// IdleTimeoutSeconds is the time since last use after which the runtime
-	// is considered idle and scaled down to MinReplicas.
+	// IdleTimeoutSeconds is the time since last use after which the
+	// workspace is considered idle and scaled down to MinReplicas.
+	// Optional — may come from the referenced Class.
 	// +kubebuilder:validation:Minimum=60
-	IdleTimeoutSeconds int64 `json:"idleTimeoutSeconds"`
+	// +optional
+	IdleTimeoutSeconds int64 `json:"idleTimeoutSeconds,omitempty"`
 
 	// MinReplicas is the replica count when idle. Must be 0 or 1 in v1.
+	// Required — instance-specific scaling policy.
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=1
 	MinReplicas int32 `json:"minReplicas"`
 
 	// MaxReplicas is the replica count when active. Must be 1 in v1.
+	// Required — instance-specific scaling policy.
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=1
 	MaxReplicas int32 `json:"maxReplicas"`
 
-	// LastUsedKey is the key in the external store that holds the last-used
-	// timestamp (Unix epoch seconds) for this runtime.
+	// LastUsedKey is the key in the external store that holds the
+	// last-used timestamp (Unix epoch seconds) for this workspace.
+	// Required — the key identifies a specific instance and cannot be
+	// inherited from a Class.
 	// +kubebuilder:validation:MinLength=1
 	LastUsedKey string `json:"lastUsedKey"`
 
-	// Env are environment variables passed to the container.
+	// Env are environment variables passed to the container. Workspace-only,
+	// not inherited from Class (merge semantics would be ambiguous).
 	// +optional
 	Env map[string]string `json:"env,omitempty"`
 
-	// Resources are the container resource requirements.
+	// Resources are the container resource requirements. Optional — may
+	// come from the referenced Class.
 	// +optional
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
@@ -60,7 +86,7 @@ type CodeHubWorkspaceSpec struct {
 // Status holds only summary values; the authoritative last-used timestamp
 // lives in the external store, never here.
 type CodeHubWorkspaceStatus struct {
-	// Phase is a high-level summary of the runtime state.
+	// Phase is a high-level summary of the workspace state.
 	// +optional
 	Phase string `json:"phase,omitempty"`
 
@@ -85,9 +111,15 @@ type CodeHubWorkspaceStatus struct {
 	// +optional
 	LastEvaluatedTime metav1.Time `json:"lastEvaluatedTime,omitempty"`
 
-	// IdleSince is the time at which the runtime first became idle. Nil while active.
+	// IdleSince is the time at which the workspace first became idle. Nil while active.
 	// +optional
 	IdleSince *metav1.Time `json:"idleSince,omitempty"`
+
+	// ResolvedClass is the name of the CodeHubWorkspaceClass that was
+	// successfully merged into this Workspace on the most recent reconcile.
+	// Empty when spec.classRef is unset.
+	// +optional
+	ResolvedClass string `json:"resolvedClass,omitempty"`
 
 	// Conditions represent the latest available observations of state.
 	// +optional
@@ -117,11 +149,13 @@ const (
 const (
 	ConditionReady                  = "Ready"
 	ConditionExternalStoreReachable = "ExternalStoreReachable"
+	ConditionClassResolved          = "ClassResolved"
 )
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Namespaced,shortName=chr
+// +kubebuilder:resource:scope=Namespaced,shortName=chws
+// +kubebuilder:printcolumn:name="Class",type=string,JSONPath=`.spec.classRef`
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="Ready",type=integer,JSONPath=`.status.readyReplicas`
 // +kubebuilder:printcolumn:name="Desired",type=integer,JSONPath=`.status.desiredReplicas`
