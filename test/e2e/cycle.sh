@@ -80,6 +80,9 @@ step "Installing manager (image=${IMG})"
 "${KC[@]}" -n "${OPERATOR_NS}" patch deployment code-hub-operator-controller-manager \
   --type=strategic \
   -p '{"spec":{"template":{"spec":{"containers":[{"name":"manager","imagePullPolicy":"IfNotPresent"}]}}}}'
+# Force a pod restart even when the image tag is unchanged, so a freshly
+# loaded image (same :dev tag) actually becomes the running binary.
+"${KC[@]}" -n "${OPERATOR_NS}" rollout restart deployment/code-hub-operator-controller-manager
 
 step "Installing Redis (unauthenticated, in-cluster)"
 cat <<'YAML' | "${KC[@]}" -n "${OPERATOR_NS}" apply -f -
@@ -122,9 +125,32 @@ step "Waiting for operator rollout"
 "${KC[@]}" -n "${OPERATOR_NS}" rollout status deploy/redis --timeout=120s \
   || fail "redis failed to roll out"
 
+# Wait for the current operator pod to actually acquire the leader lease.
+# rollout status only checks readiness probes; controller-runtime leader
+# election takes another ~15s after pod start, during which reconcile is
+# paused. Applying the CR before this finishes causes the first reconcile
+# to never run.
+step "Waiting for leader lease"
+op_pod=$("${KC[@]}" -n "${OPERATOR_NS}" get pods \
+  -l app.kubernetes.io/name=code-hub-operator \
+  -o jsonpath='{.items[0].metadata.name}')
+lease_ok=0
+for _ in $(seq 1 60); do
+  holder=$("${KC[@]}" -n "${OPERATOR_NS}" get lease \
+    code-hub-operator.runtime.project-jelly.io \
+    -o jsonpath='{.spec.holderIdentity}' 2>/dev/null || echo "")
+  if [[ "${holder}" == "${op_pod}"* ]]; then
+    lease_ok=1
+    break
+  fi
+  sleep 1
+done
+[[ "${lease_ok}" == "1" ]] || fail "operator pod ${op_pod} never acquired leader lease (holder=${holder})"
+
 # ─── App namespace + CR ──────────────────────────────────────────────────────
-step "Creating app namespace ${APP_NS}"
-"${KC[@]}" create ns "${APP_NS}" --dry-run=client -o yaml | "${KC[@]}" apply -f -
+step "Recreating app namespace ${APP_NS} (drops any stale children from previous runs)"
+"${KC[@]}" delete ns "${APP_NS}" --ignore-not-found --wait=true --timeout=120s
+"${KC[@]}" create ns "${APP_NS}"
 
 step "Resetting Redis state (idempotency)"
 "${KC[@]}" -n "${OPERATOR_NS}" exec deploy/redis -- \
@@ -158,6 +184,22 @@ spec:
 YAML
 
 # ─── Phase A: scale-up ───────────────────────────────────────────────────────
+# Reconciler may not act until leader election completes (up to ~15s after
+# a fresh operator restart), so the Deployment/Pod do not exist yet and
+# 'kubectl wait --for=condition=Ready' would exit immediately with
+# "no matching resources found". Poll for pod creation first, then wait.
+step "Phase A — waiting for reconciler to create the Pod"
+pod_created=0
+for _ in $(seq 1 60); do
+  if "${KC[@]}" -n "${APP_NS}" get pods \
+      -l "app.kubernetes.io/instance=${CR_NAME}" -o name 2>/dev/null | grep -q "^pod/"; then
+    pod_created=1
+    break
+  fi
+  sleep 1
+done
+[[ "${pod_created}" == "1" ]] || fail "reconciler never created a runtime Pod"
+
 step "Phase A — waiting for Pod Ready"
 "${KC[@]}" -n "${APP_NS}" wait --for=condition=Ready pod \
   -l "app.kubernetes.io/instance=${CR_NAME}" --timeout=240s \
@@ -231,6 +273,19 @@ for _ in $(seq 1 15); do
   sleep 1
 done
 [[ "${scale_down_seen}" == "1" ]] || fail "no 'Scaled down ... from 1 to 0' event recorded"
+
+# Operator-emitted ScaledDown event should also be present.
+operator_scaled_down_seen=0
+for _ in $(seq 1 15); do
+  if "${KC[@]}" -n "${APP_NS}" get events --field-selector=reason=ScaledDown \
+      -o jsonpath='{range .items[*]}{.message}{"\n"}{end}' \
+      | grep -q "Scaled deployment to 0 replica(s)"; then
+    operator_scaled_down_seen=1
+    break
+  fi
+  sleep 1
+done
+[[ "${operator_scaled_down_seen}" == "1" ]] || fail "no operator ScaledDown event recorded"
 
 # Operator pod must still be Running.
 OP_READY=$("${KC[@]}" -n "${OPERATOR_NS}" get pods \

@@ -418,6 +418,52 @@ func TestReconcile_EmitsScaleEvents(t *testing.T) {
 	require.Contains(t, evt, "Scaled deployment to 1 replica(s)")
 }
 
+func TestReconcile_EmitsScaleDownEvents(t *testing.T) {
+	cr := sampleRuntime()
+	env := newTestEnv(t, cr)
+	rec := record.NewFakeRecorder(10)
+	env.rec.Recorder = rec
+
+	// Idle condition: last used far enough in the past to scale to zero.
+	env.store.Set(cr.Spec.LastUsedKey, env.clock.t.Add(-2*time.Hour))
+	env.reconcile(cr.Name, cr.Namespace)
+
+	var evt string
+	require.Eventually(t, func() bool {
+		select {
+		case evt = <-rec.Events:
+			return true
+		default:
+			return false
+		}
+	}, time.Second, 10*time.Millisecond)
+	require.Contains(t, evt, eventReasonScaledDown)
+	require.Contains(t, evt, "Scaled deployment to 0 replica(s)")
+}
+
+func TestReconcile_StoreErrorEmitsWarningEvent(t *testing.T) {
+	cr := sampleRuntime()
+	env := newTestEnv(t, cr)
+	rec := record.NewFakeRecorder(10)
+	env.rec.Recorder = rec
+	env.store.SetError(errors.New("boom 100% unavailable"))
+
+	env.reconcile(cr.Name, cr.Namespace)
+
+	var evt string
+	require.Eventually(t, func() bool {
+		select {
+		case evt = <-rec.Events:
+			return true
+		default:
+			return false
+		}
+	}, time.Second, 10*time.Millisecond)
+	require.Contains(t, evt, eventReasonStoreUnreachable)
+	require.Contains(t, evt, "boom 100% unavailable")
+	require.NotContains(t, evt, "%!(", "event formatting should not treat payload as format string")
+}
+
 func TestReconcile_ServiceMetadataDriftIsReconciled(t *testing.T) {
 	cr := sampleRuntime()
 	env := newTestEnv(t, cr)
