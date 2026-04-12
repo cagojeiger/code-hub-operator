@@ -66,15 +66,20 @@ if ! kind get clusters | grep -q "^${KIND_CLUSTER}$"; then
 fi
 "${KC[@]}" cluster-info >/dev/null || fail "kubectl cannot reach ${KUBE_CONTEXT}"
 
-# ─── Install: CRD + RBAC + manager + redis ───────────────────────────────────
+# ─── Install: CRD + manager + RBAC + redis ──────────────────────────────────
+# Order matters on a fresh cluster: config/rbac declares a ServiceAccount in
+# code-hub-operator-system, which only exists after config/manager/manager.yaml
+# is applied (that file carries both the namespace and the Deployment).
 step "Installing CRD"
 "${KC[@]}" apply -f "${REPO_ROOT}/config/crd/bases"
+
+step "Installing manager (image=${IMG}) — creates operator namespace"
+"${KC[@]}" apply -f "${REPO_ROOT}/config/manager/manager.yaml"
 
 step "Installing RBAC"
 "${KC[@]}" apply -f "${REPO_ROOT}/config/rbac"
 
-step "Installing manager (image=${IMG})"
-"${KC[@]}" apply -f "${REPO_ROOT}/config/manager/manager.yaml"
+step "Patching manager image to ${IMG}"
 "${KC[@]}" -n "${OPERATOR_NS}" set image \
   deployment/code-hub-operator-controller-manager \
   "manager=${IMG}"
@@ -132,21 +137,32 @@ step "Waiting for operator rollout"
 # paused. Applying the CR before this finishes causes the first reconcile
 # to never run.
 step "Waiting for leader lease"
-op_pod=$("${KC[@]}" -n "${OPERATOR_NS}" get pods \
-  -l app.kubernetes.io/name=code-hub-operator \
-  -o jsonpath='{.items[0].metadata.name}')
+# Derive the leader pod from the lease itself instead of pre-selecting
+# .items[0] from the pods list — the latter races against rollout restart
+# and can point at a still-terminating pod from the old replica set.
+# Lease holderIdentity format: "<podName>_<uuid>". We extract the pod
+# name, verify that pod actually exists and is not terminating, and
+# treat any match as success.
 lease_ok=0
+op_pod=""
 for _ in $(seq 1 60); do
   holder=$("${KC[@]}" -n "${OPERATOR_NS}" get lease \
     code-hub-operator.codehub.project-jelly.io \
     -o jsonpath='{.spec.holderIdentity}' 2>/dev/null || echo "")
-  if [[ "${holder}" == "${op_pod}"* ]]; then
-    lease_ok=1
-    break
+  holder_pod="${holder%%_*}"
+  if [[ -n "${holder_pod}" ]]; then
+    del_ts=$("${KC[@]}" -n "${OPERATOR_NS}" get pod "${holder_pod}" \
+      -o jsonpath='{.metadata.deletionTimestamp}' 2>/dev/null || echo "missing")
+    if [[ "${del_ts}" == "" ]]; then
+      lease_ok=1
+      op_pod="${holder_pod}"
+      break
+    fi
   fi
   sleep 1
 done
-[[ "${lease_ok}" == "1" ]] || fail "operator pod ${op_pod} never acquired leader lease (holder=${holder})"
+[[ "${lease_ok}" == "1" ]] || fail "no live operator pod acquired leader lease (holder=${holder})"
+echo "Leader lease held by ${op_pod}"
 
 # ─── App namespace + CR ──────────────────────────────────────────────────────
 step "Recreating app namespace ${APP_NS} (drops any stale children from previous runs)"
