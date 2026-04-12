@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"gh run view 24275990969 --json conclusion,status,jobs 2>&1 | python3 -c 'import json,sys; d=json.load(sys.stdin); print(\\\"status:\\\",d[\\\"status\\\"],\\\"conclusion:\\\",d[\\\"conclusion\\\"]); [print...",
+  "error": "Exit code 1\n  File \"<string>\", line 1\n    import json,sys; d=json.load(sys.stdin); print(\"status:\",d[\"status\"],\"conclusion:\",d[\"conclusion\"]); [print(f\"  {j[\\\"name\\\"]:12} {j[\\\"conclusion\\\"] or j[\\\"status\\\"]}\") for j in d[\"jobs\"]]\n                                                                                                                        ^\nSyntaxError: unexpected character after line continuation character",
+  "timestamp": "2026-04-11T05:52:18.617Z",
+  "retry_count": 1
+}

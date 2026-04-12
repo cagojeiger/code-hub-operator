@@ -1,21 +1,21 @@
-# CRD Spec — `CodeHubRuntime`
+# CRD Spec — `CodeHubWorkspace`
 
-코드 위치: `api/v1alpha1/codehubruntime_types.go`, `api/v1alpha1/groupversion_info.go`.
+코드 위치: `api/v1alpha1/codehubworkspace_types.go`, `api/v1alpha1/groupversion_info.go`.
 
 ## 식별자
 
 | 항목 | 값 |
 |---|---|
-| API group | `runtime.project-jelly.io` |
+| API group | `codehub.project-jelly.io` |
 | API version | `v1alpha1` |
-| Kind | `CodeHubRuntime` |
-| List kind | `CodeHubRuntimeList` |
-| Plural | `codehubruntimes` |
+| Kind | `CodeHubWorkspace` |
+| List kind | `CodeHubWorkspaceList` |
+| Plural | `codehubworkspaces` |
 | Short name | `chr` |
 | Scope | `Namespaced` |
 | Subresources | `status` |
 
-CRD manifest: `config/crd/bases/runtime.project-jelly.io_codehubruntimes.yaml`
+CRD manifest: `config/crd/bases/codehub.project-jelly.io_codehubworkspaces.yaml`
 
 ## Printer Columns
 
@@ -28,11 +28,11 @@ CRD manifest: `config/crd/bases/runtime.project-jelly.io_codehubruntimes.yaml`
 | `Desired` | `.status.desiredReplicas` | integer |
 | `Age` | `.metadata.creationTimestamp` | date |
 
-선언 위치: `api/v1alpha1/codehubruntime_types.go` 의 `+kubebuilder:printcolumn` 마커.
+선언 위치: `api/v1alpha1/codehubworkspace_types.go` 의 `+kubebuilder:printcolumn` 마커.
 
 ## Spec
 
-필드 위치: `CodeHubRuntimeSpec` in `api/v1alpha1/codehubruntime_types.go`.
+필드 위치: `CodeHubWorkspaceSpec` in `api/v1alpha1/codehubworkspace_types.go`.
 
 | 필드 | 타입 | 필수 | 기본값 | Validation | 의미 |
 |---|---|---|---|---|---|
@@ -55,7 +55,7 @@ CRD manifest: `config/crd/bases/runtime.project-jelly.io_codehubruntimes.yaml`
 
 ## Status
 
-필드 위치: `CodeHubRuntimeStatus` in `api/v1alpha1/codehubruntime_types.go`.
+필드 위치: `CodeHubWorkspaceStatus` in `api/v1alpha1/codehubworkspace_types.go`.
 
 | 필드 | 타입 | 의미 |
 |---|---|---|
@@ -75,7 +75,7 @@ CRD manifest: `config/crd/bases/runtime.project-jelly.io_codehubruntimes.yaml`
 
 ### Phase 상수
 
-`api/v1alpha1/codehubruntime_types.go` 내 상수:
+`api/v1alpha1/codehubworkspace_types.go` 내 상수:
 
 ```go
 PhaseRunning    = "Running"
@@ -101,11 +101,11 @@ ScaleActionNoChange    = "NoChange"
 
 ## 샘플 CR
 
-`config/samples/runtime_v1alpha1_codehubruntime.yaml`:
+`config/samples/runtime_v1alpha1_codehubworkspace.yaml`:
 
 ```yaml
-apiVersion: runtime.project-jelly.io/v1alpha1
-kind: CodeHubRuntime
+apiVersion: codehub.project-jelly.io/v1alpha1
+kind: CodeHubWorkspace
 metadata:
   name: demo-runtime
   namespace: demo
@@ -127,7 +127,7 @@ spec:
 
 ## DeepCopy
 
-`api/v1alpha1/zz_generated.deepcopy.go`는 controller-gen이 생성할 것과 동등한 손으로 쓴 DeepCopy 구현이다. `CodeHubRuntime`, `CodeHubRuntimeList`, `CodeHubRuntimeSpec`, `CodeHubRuntimeStatus` 각각에 대해 `DeepCopy`, `DeepCopyInto`, `DeepCopyObject`(top-level 타입만)를 제공한다.
+`api/v1alpha1/zz_generated.deepcopy.go`는 controller-gen이 생성할 것과 동등한 손으로 쓴 DeepCopy 구현이다. `CodeHubWorkspace`, `CodeHubWorkspaceList`, `CodeHubWorkspaceSpec`, `CodeHubWorkspaceStatus` 각각에 대해 `DeepCopy`, `DeepCopyInto`, `DeepCopyObject`(top-level 타입만)를 제공한다.
 
 ## 버저닝 계획
 

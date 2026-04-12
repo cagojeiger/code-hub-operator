@@ -27,7 +27,7 @@
 |---|---|---|
 | [store.md](./store.md) | Unit | `internal/store/fake_test.go` |
 | [builders.md](./builders.md) | Unit | `internal/controller/deployment_test.go`, `service_test.go` |
-| [reconcile.md](./reconcile.md) | Unit | `internal/controller/codehubruntime_controller_test.go` |
+| [reconcile.md](./reconcile.md) | Unit | `internal/controller/codehubworkspace_controller_test.go` |
 | [envtest.md](./envtest.md) | Envtest | `internal/controller/envtest_test.go` |
 | [e2e.md](./e2e.md) | E2E | `test/e2e/cycle.sh` |
 

@@ -2,11 +2,11 @@
 
 오퍼레이터가 동작하는 데 필요한 최소 권한.
 
-코드 위치: `internal/controller/codehubruntime_controller.go`의 `+kubebuilder:rbac` 마커 + 생성된 manifest `config/rbac/role.yaml`.
+코드 위치: `internal/controller/codehubworkspace_controller.go`의 `+kubebuilder:rbac` 마커 + 생성된 manifest `config/rbac/role.yaml`.
 
 ## 설계 원칙
 
-- **필요한 동사만**. CR 본문(`codehubruntimes`)은 읽기만 하고, 쓰기는 `/status`에만 한다.
+- **필요한 동사만**. CR 본문(`codehubworkspaces`)은 읽기만 하고, 쓰기는 `/status`에만 한다.
 - **namespaced 리소스지만 ClusterRole 사용**. CR는 여러 네임스페이스에 존재할 수 있고, 오퍼레이터는 전 네임스페이스를 watch하기 때문이다.
 - **secrets, configmaps, nodes 등 건드리지 않는다**.
 
@@ -14,8 +14,8 @@
 
 | API group | Resources | Verbs | 이유 |
 |---|---|---|---|
-| `runtime.project-jelly.io` | `codehubruntimes` | `get;list;watch` | 주 리소스 watch/조회 |
-| `runtime.project-jelly.io` | `codehubruntimes/status` | `get;update` | status 서브리소스 업데이트 |
+| `codehub.project-jelly.io` | `codehubworkspaces` | `get;list;watch` | 주 리소스 watch/조회 |
+| `codehub.project-jelly.io` | `codehubworkspaces/status` | `get;update` | status 서브리소스 업데이트 |
 | `apps` | `deployments` | `get;list;watch;create;update` | 자식 Deployment 생성·스케일 |
 | `""` (core) | `events` | `create;patch` | 스케일/에러 이벤트 기록 |
 | `""` (core) | `services` | `get;list;watch;create;update` | 자식 Service 생성·갱신 |
@@ -32,11 +32,11 @@ kind: ClusterRole
 metadata:
   name: code-hub-operator-manager-role
 rules:
-  - apiGroups: ["runtime.project-jelly.io"]
-    resources: ["codehubruntimes"]
+  - apiGroups: ["codehub.project-jelly.io"]
+    resources: ["codehubworkspaces"]
     verbs: ["get","list","watch"]
-  - apiGroups: ["runtime.project-jelly.io"]
-    resources: ["codehubruntimes/status"]
+  - apiGroups: ["codehub.project-jelly.io"]
+    resources: ["codehubworkspaces/status"]
     verbs: ["get","update"]
   - apiGroups: ["apps"]
     resources: ["deployments"]
@@ -98,5 +98,5 @@ subjects:
 ## v1에 **없는** 것
 
 - Redis 연결 시크릿 (`secrets` 권한): 현재는 CLI flag/env로만 주입. Secret 기반 구성은 필요할 때 추가.
-- `codehubruntimes/finalizers` 권한: v1은 finalizer를 쓰지 않으므로 미포함.
+- `codehubworkspaces/finalizers` 권한: v1은 finalizer를 쓰지 않으므로 미포함.
 - 멀티 테넌트 네임스페이스 격리 (RoleBinding 기반): v1은 ClusterRole 전역 관리만.

@@ -12,10 +12,10 @@ import (
 	runtimev1alpha1 "github.com/cagojeiger/code-hub-operator/api/v1alpha1"
 )
 
-// buildDeployment renders the desired Deployment for a CodeHubRuntime.
+// buildDeployment renders the desired Deployment for a CodeHubWorkspace.
 // replicas is passed explicitly so the reconciler can decide the value
 // from idle state without mutating the CR spec.
-func buildDeployment(cr *runtimev1alpha1.CodeHubRuntime, replicas int32) *appsv1.Deployment {
+func buildDeployment(cr *runtimev1alpha1.CodeHubWorkspace, replicas int32) *appsv1.Deployment {
 	pullPolicy := cr.Spec.ImagePullPolicy
 	if pullPolicy == "" {
 		pullPolicy = corev1.PullIfNotPresent
@@ -80,7 +80,7 @@ func envFromMap(m map[string]string) []corev1.EnvVar {
 
 // validateForDeployment returns an error if the CR cannot be rendered into
 // a Deployment. This is a safety net on top of CRD OpenAPI validation.
-func validateForDeployment(cr *runtimev1alpha1.CodeHubRuntime) error {
+func validateForDeployment(cr *runtimev1alpha1.CodeHubWorkspace) error {
 	if cr.Spec.Image == "" {
 		return fmt.Errorf("spec.image is required")
 	}

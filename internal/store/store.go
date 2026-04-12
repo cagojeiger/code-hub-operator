@@ -1,5 +1,5 @@
 // Package store abstracts the "last used at" external store used by the
-// CodeHubRuntime controller to decide idle-vs-active state.
+// CodeHubWorkspace controller to decide idle-vs-active state.
 package store
 
 import (

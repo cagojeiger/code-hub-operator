@@ -6,7 +6,7 @@
 
 | 문서 | 핵심 내용 |
 |---|---|
-| [crd.md](./crd.md) | `CodeHubRuntime` 스키마, validation, status 필드 |
+| [crd.md](./crd.md) | `CodeHubWorkspace` 스키마, validation, status 필드 |
 | [controller.md](./controller.md) | reconcile 순서, 에러 처리, requeue 정책 |
 | [store.md](./store.md) | `LastUsedStore` 계약, Redis/Fake 구현 |
 | [resources.md](./resources.md) | Deployment/Service 생성 규칙과 드리프트 복구 |

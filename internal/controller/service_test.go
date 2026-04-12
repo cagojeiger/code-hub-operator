@@ -11,9 +11,9 @@ import (
 )
 
 func TestBuildService_Shape(t *testing.T) {
-	cr := &runtimev1alpha1.CodeHubRuntime{
+	cr := &runtimev1alpha1.CodeHubWorkspace{
 		ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "ns"},
-		Spec: runtimev1alpha1.CodeHubRuntimeSpec{
+		Spec: runtimev1alpha1.CodeHubWorkspaceSpec{
 			ServicePort:   80,
 			ContainerPort: 8080,
 		},
@@ -25,7 +25,7 @@ func TestBuildService_Shape(t *testing.T) {
 	require.Equal(t, "ns", svc.Namespace)
 	require.Equal(t, corev1.ServiceTypeClusterIP, svc.Spec.Type)
 	require.Equal(t, map[string]string{
-		"app.kubernetes.io/name":     "codehubruntime",
+		"app.kubernetes.io/name":     "codehubworkspace",
 		"app.kubernetes.io/instance": "demo",
 	}, svc.Spec.Selector)
 
@@ -40,9 +40,9 @@ func TestBuildService_SelectorMatchesDeployment(t *testing.T) {
 	// The Service selector must match the Deployment pod labels, otherwise
 	// no endpoints will be produced. This guards against someone changing
 	// one and forgetting the other.
-	cr := &runtimev1alpha1.CodeHubRuntime{
+	cr := &runtimev1alpha1.CodeHubWorkspace{
 		ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "ns"},
-		Spec: runtimev1alpha1.CodeHubRuntimeSpec{
+		Spec: runtimev1alpha1.CodeHubWorkspaceSpec{
 			Image:         "i",
 			ServicePort:   80,
 			ContainerPort: 8080,

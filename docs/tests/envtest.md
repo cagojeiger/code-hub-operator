@@ -46,7 +46,7 @@ Unit tier 가 우회하는 "진짜 API server 동작" 을 검증한다.
 - 기대:
   - `Controller=true` (cascade GC 대상 표시)
   - `BlockOwnerDeletion=true` (finalizer 동작 보장)
-  - `Kind=CodeHubRuntime`, Name이 CR 이름과 일치
+  - `Kind=CodeHubWorkspace`, Name이 CR 이름과 일치
 - 왜 필요한가: fake client 는 `SetControllerReference` 호출을 흉내만 내고, 실제 API server 가 받아들이는 정확한 형태인지 검증하지 않는다.
 - **주의**: envtest 는 kube-controller-manager 를 띄우지 않으므로, 실제 cascade GC (CR 삭제 → 자식 삭제) 는 여기서 관찰할 수 없다. 그 경로는 e2e tier 에서 검증한다. 여기서는 "GC 가 발동할 수 있는 *메타데이터가* 제대로 써졌는가" 까지만 본다.
 

@@ -1,11 +1,11 @@
-# Controller Spec — `CodeHubRuntimeReconciler`
+# Controller Spec — `CodeHubWorkspaceReconciler`
 
-코드 위치: `internal/controller/codehubruntime_controller.go`.
+코드 위치: `internal/controller/codehubworkspace_controller.go`.
 
 ## 구조체
 
 ```go
-type CodeHubRuntimeReconciler struct {
+type CodeHubWorkspaceReconciler struct {
     client.Client
     Scheme *runtime.Scheme
     Store  store.LastUsedStore
@@ -22,13 +22,13 @@ type CodeHubRuntimeReconciler struct {
 
 ```go
 ctrl.NewControllerManagedBy(mgr).
-    For(&CodeHubRuntime{}).
+    For(&CodeHubWorkspace{}).
     Owns(&appsv1.Deployment{}).
     Owns(&corev1.Service{}).
     Complete(r)
 ```
 
-- 1차 이벤트: `CodeHubRuntime` create/update/delete
+- 1차 이벤트: `CodeHubWorkspace` create/update/delete
 - 2차 이벤트: owned `Deployment`, `Service` 변경 → 해당 CR로 enqueue
 - 주기적 requeue: 성공/에러 모두 `RequeueAfter: 30 * time.Second` (상수 `requeueAfter`)
 
@@ -38,7 +38,7 @@ ctrl.NewControllerManagedBy(mgr).
 
 1. **CR 조회**
    ```go
-   cr := &CodeHubRuntime{}
+   cr := &CodeHubWorkspace{}
    if err := r.Get(ctx, req.NamespacedName, cr); err != nil {
        return ctrl.Result{}, client.IgnoreNotFound(err)
    }
@@ -131,8 +131,8 @@ if storeErr != nil {
 | `podTemplateEquivalent(a, b)` | `deployment.go` | 우리가 관리하는 필드만 좁게 비교해 무의미한 업데이트를 막는다 |
 | `envFromMap(m)` | `deployment.go` | 맵을 **정렬된** `[]EnvVar`로 변환 → reconcile 결정성 확보 |
 | `servicePortsEqual`, `selectorsEqual` | `service.go` | Service용 좁은 동등성 비교 |
-| `ensureService`, `ensureDeployment`, `ensureDeploymentPreserveReplicas`, `observeReady` | `codehubruntime_controller.go` | Reconcile 내부 단계 |
-| `writeSuccessStatus`, `writeStoreErrorStatus`, `writeErrorStatus` | `codehubruntime_controller.go` | status 기록 3종 |
+| `ensureService`, `ensureDeployment`, `ensureDeploymentPreserveReplicas`, `observeReady` | `codehubworkspace_controller.go` | Reconcile 내부 단계 |
+| `writeSuccessStatus`, `writeStoreErrorStatus`, `writeErrorStatus` | `codehubworkspace_controller.go` | status 기록 3종 |
 
 ## Clock 주입
 

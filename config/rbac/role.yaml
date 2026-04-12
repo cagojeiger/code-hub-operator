@@ -32,6 +32,21 @@ rules:
   - update
   - watch
 - apiGroups:
+  - codehub.project-jelly.io
+  resources:
+  - codehubworkspaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - codehub.project-jelly.io
+  resources:
+  - codehubworkspaces/status
+  verbs:
+  - get
+  - update
+- apiGroups:
   - coordination.k8s.io
   resources:
   - leases
@@ -43,18 +58,3 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - runtime.project-jelly.io
-  resources:
-  - codehubruntimes
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - runtime.project-jelly.io
-  resources:
-  - codehubruntimes/status
-  verbs:
-  - get
-  - update
