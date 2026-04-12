@@ -326,11 +326,13 @@ for _ in $(seq 1 15); do
 done
 [[ "${operator_scaled_down_seen}" == "1" ]] || fail "no operator ScaledDown event recorded"
 
-# Operator pod must still be Running.
-OP_READY=$("${KC[@]}" -n "${OPERATOR_NS}" get pods \
-  -l app.kubernetes.io/name=code-hub-operator \
-  -o jsonpath='{.items[0].status.containerStatuses[0].ready}')
-[[ "${OP_READY}" == "true" ]] || fail "operator pod not Ready after cycle"
+# Operator pod must still be Running. Target the pod that actually held the
+# leader lease during the run (captured up in "Waiting for leader lease")
+# instead of .items[0] — the pods list can contain a terminating replica
+# from an earlier rollout step and that would mask a real regression.
+OP_READY=$("${KC[@]}" -n "${OPERATOR_NS}" get pod "${op_pod}" \
+  -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null || echo "")
+[[ "${OP_READY}" == "true" ]] || fail "leader pod ${op_pod} not Ready after cycle"
 
 echo
 echo "=================================================================="
