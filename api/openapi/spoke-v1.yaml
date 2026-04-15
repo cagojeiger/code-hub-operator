@@ -1,0 +1,513 @@
+openapi: 3.1.0
+
+info:
+  title: Code Hub Spoke API
+  version: 1.0.0
+  description: |
+    Spoke-side workspace lifecycle API.
+
+    **Producer:** the `code-hub-operator` spoke binary (a thin REST layer
+    that translates HTTP into `CodeHubWorkspace` CR operations against the
+    local Kubernetes API server).
+
+    **Consumer:** a hub orchestrator running outside the cluster, or a
+    test client driving the spoke directly via `curl`.
+
+    ## Contract stability
+
+    - Endpoints under `/api/v1/` are stable. Additive changes only —
+      new optional fields, new endpoints, new enum values are allowed.
+    - Removing or renaming a field, narrowing a type, or changing a
+      status code is a breaking change and requires a `/api/v2/` path.
+    - The `info.version` semver tracks the spec itself: bump the patch
+      level for prose / example fixes, the minor for additive schema
+      changes, and the major when a new path version is introduced.
+
+    ## Idempotency
+
+    - `POST /workspaces` with an explicit `id` is **not** idempotent —
+      the second call returns `409 CONFLICT`. Callers that need
+      idempotency should generate the `id` themselves and treat
+      conflict as success-on-replay.
+    - `DELETE /workspaces/{id}` is idempotent — a missing workspace
+      still returns `204`.
+    - `POST /workspaces/{id}/wake` is idempotent and may be called
+      repeatedly without side effects beyond an annotation bump.
+
+    ## Authentication
+
+    All endpoints require `Authorization: Bearer <token>`. The token is a
+    shared secret mounted into the spoke binary from a Kubernetes
+    `Secret`. The spoke does **not** validate end-user identity — it
+    trusts the hub. End-user authentication is the hub's job.
+
+  contact:
+    name: code-hub-operator
+    url: https://github.com/cagojeiger/code-hub-operator
+  license:
+    name: Apache-2.0
+
+servers:
+  - url: http://spoke-api.code-hub-operator-system.svc.cluster.local:9090
+    description: in-cluster Service DNS
+  - url: http://localhost:9090
+    description: local dev (port-forward)
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: workspaces
+    description: Workspace lifecycle CRUD
+  - name: lifecycle
+    description: Out-of-band lifecycle hints (wake, etc.)
+
+paths:
+  /api/v1/workspaces:
+    post:
+      tags: [workspaces]
+      operationId: createWorkspace
+      summary: Create a workspace from a Class reference
+      description: |
+        Creates a `CodeHubWorkspace` CR in the spoke cluster. The CR
+        normally references a `CodeHubWorkspaceClass` for image / port
+        / resource defaults; only instance-level fields (owner, env,
+        replica policy) need to be supplied here.
+
+        The response is returned as soon as the CR is persisted —
+        scheduling, image pull, and pod start are asynchronous and
+        observable via `GET /workspaces/{id}`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkspaceRequest'
+            examples:
+              minimal:
+                summary: Minimal create with class reference
+                value:
+                  spec:
+                    classRef: standard
+                    owner: alice
+              named:
+                summary: Caller-supplied id
+                value:
+                  id: alice-personal
+                  spec:
+                    classRef: standard
+                    owner: alice
+                    env:
+                      EDITOR_THEME: dark
+              override:
+                summary: Override Class image
+                value:
+                  spec:
+                    classRef: standard
+                    owner: alice
+                    image: ghcr.io/acme/code-server:experimental
+      responses:
+        '201':
+          description: Workspace CR created. Reconciliation is asynchronous.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          description: Referenced Class does not exist on this spoke.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: CLASS_NOT_FOUND
+                message: 'CodeHubWorkspaceClass "standard" not found'
+                requestId: 7f2a-...
+
+    get:
+      tags: [workspaces]
+      operationId: listWorkspaces
+      summary: List workspaces on this spoke
+      description: |
+        Returns workspaces created via this spoke API. Listing is
+        unpaged in v1 — clients should expect at most a few hundred
+        items per spoke. Pagination will be added via cursor in v2 if
+        needed.
+      parameters:
+        - in: query
+          name: owner
+          description: Filter by owner label
+          required: false
+          schema:
+            type: string
+            example: alice
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/workspaces/{id}:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceIDParam'
+    get:
+      tags: [workspaces]
+      operationId: getWorkspace
+      summary: Fetch a single workspace
+      description: |
+        Returns the current state of a single workspace, including the
+        observed status from the operator. Clients may poll this
+        endpoint to wait for `phase=Running` after a `POST /workspaces`
+        or after a `POST /workspaces/{id}/wake`.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+              examples:
+                pending:
+                  summary: Just created, reconciler has not run yet
+                  value:
+                    id: alice-personal
+                    createdAt: '2026-04-15T01:30:00Z'
+                    spec:
+                      classRef: standard
+                      owner: alice
+                    status:
+                      phase: Pending
+                      observedGeneration: 0
+                      desiredReplicas: 0
+                      readyReplicas: 0
+                      lastEvaluatedAt: '2026-04-15T01:30:00Z'
+                running:
+                  summary: Pod is Ready, endpoint is set
+                  value:
+                    id: alice-personal
+                    createdAt: '2026-04-15T01:30:00Z'
+                    spec:
+                      classRef: standard
+                      owner: alice
+                    status:
+                      phase: Running
+                      observedGeneration: 1
+                      desiredReplicas: 1
+                      readyReplicas: 1
+                      resolvedClass: standard
+                      endpoint:
+                        scheme: http
+                        host: alice-personal.codehub.svc.cluster.local
+                        port: 80
+                      lastEvaluatedAt: '2026-04-15T01:30:34Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [workspaces]
+      operationId: deleteWorkspace
+      summary: Delete a workspace (idempotent)
+      description: |
+        Deletes the underlying `CodeHubWorkspace` CR. Owned children
+        (Deployment, Service) are reaped by Kubernetes garbage
+        collection. Storage retention follows the Class policy.
+
+        Idempotent — deleting a workspace that does not exist still
+        returns `204`.
+      responses:
+        '204':
+          description: Deleted (or already gone)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/workspaces/{id}/wake:
+    parameters:
+      - $ref: '#/components/parameters/WorkspaceIDParam'
+    post:
+      tags: [lifecycle]
+      operationId: wakeWorkspace
+      summary: Hint the reconciler to wake a cold workspace
+      description: |
+        Bumps an annotation on the CR (`codehub.project-jelly.io/wake`)
+        with the current timestamp. The reconciler watches CR updates
+        and reconciles immediately, bypassing the normal 30s requeue
+        cadence.
+
+        Idempotent — repeated calls only refresh the annotation
+        timestamp. Has no effect on a workspace already in `Running`.
+      responses:
+        '202':
+          description: Wake hint accepted; reconciliation pending.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+
+  parameters:
+    WorkspaceIDParam:
+      in: path
+      name: id
+      required: true
+      description: Workspace identifier
+      schema:
+        $ref: '#/components/schemas/WorkspaceID'
+
+  responses:
+    BadRequest:
+      description: Request body or parameters failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: INVALID_REQUEST
+            message: 'spec.classRef is required'
+            requestId: 7f2a-...
+    Unauthorized:
+      description: Missing or invalid bearer token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: UNAUTHORIZED
+            message: 'bearer token missing or invalid'
+            requestId: 7f2a-...
+    NotFound:
+      description: Workspace not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: NOT_FOUND
+            message: 'workspace "alice-personal" not found'
+            requestId: 7f2a-...
+    Conflict:
+      description: A workspace with the requested id already exists.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: CONFLICT
+            message: 'workspace "alice-personal" already exists'
+            requestId: 7f2a-...
+
+  schemas:
+    WorkspaceID:
+      type: string
+      pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+      minLength: 1
+      maxLength: 63
+      description: |
+        DNS-1123 label. Maps 1:1 to the underlying `CodeHubWorkspace`
+        CR name and to the owned Deployment / Service / Pod names.
+
+        Callers may supply an `id` on `POST /workspaces`, or omit it
+        and let the spoke generate one in the form `ws-<8-char-nanoid>`.
+      example: alice-personal
+
+    Phase:
+      type: string
+      enum:
+        - Pending
+        - Running
+        - Idle
+        - ScaledDown
+        - Error
+      description: |
+        Workspace lifecycle phase, mirrored from `CodeHubWorkspace.status.phase`.
+
+        | value      | meaning |
+        |---|---|
+        | `Pending`    | CR exists but reconciler has not produced child resources yet. |
+        | `Running`    | Deployment is at desired replicas and at least one pod is Ready. |
+        | `Idle`       | Last activity is older than the warm window but still within cold window. Pod kept up. |
+        | `ScaledDown` | Scaled to 0; cold. Pods are gone, storage (if any) is preserved. |
+        | `Error`      | Reconcile failed. See `status.message` and CR conditions for detail. |
+
+        Phase transitions are owned by the operator. The API only
+        observes; clients must not pattern-match phase strings outside
+        this enum.
+      example: Running
+
+    WorkspaceSpec:
+      type: object
+      required: [classRef, owner]
+      properties:
+        classRef:
+          type: string
+          description: Name of the `CodeHubWorkspaceClass` to inherit from.
+          example: standard
+        owner:
+          type: string
+          description: |
+            Logical owner identifier. Stored as a label on the
+            underlying CR for filtering via `GET /workspaces?owner=...`.
+          example: alice
+        image:
+          type: ["string", "null"]
+          description: |
+            Optional override for the Class's image. When present,
+            wins over the Class default per the standard merge rules.
+          example: ghcr.io/acme/code-server:experimental
+        env:
+          type: ["object", "null"]
+          additionalProperties:
+            type: string
+          description: |
+            Per-workspace environment variables passed to the container.
+            Workspace-only — never inherited from the Class.
+          example:
+            EDITOR_THEME: dark
+            REDIS_URL: redis://...
+
+    WorkspaceEndpoint:
+      type: object
+      required: [scheme, host, port]
+      properties:
+        scheme:
+          type: string
+          enum: [http, https]
+          example: http
+        host:
+          type: string
+          description: |
+            In-cluster Service DNS name. Hub-side proxies should
+            resolve this via cluster DNS (or via headscale overlay
+            if hub is in a separate cluster).
+          example: alice-personal.codehub.svc.cluster.local
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          example: 80
+
+    WorkspaceStatus:
+      type: object
+      required: [phase, observedGeneration, desiredReplicas, readyReplicas, lastEvaluatedAt]
+      properties:
+        phase:
+          $ref: '#/components/schemas/Phase'
+        observedGeneration:
+          type: integer
+          format: int64
+          description: Last `metadata.generation` the operator acted on.
+        desiredReplicas:
+          type: integer
+          minimum: 0
+          maximum: 1
+        readyReplicas:
+          type: integer
+          minimum: 0
+          maximum: 1
+        resolvedClass:
+          type: ["string", "null"]
+          description: |
+            Class that was successfully merged into this Workspace
+            on the most recent reconcile. Empty when `spec.classRef`
+            is unset or the Class could not be resolved.
+        endpoint:
+          oneOf:
+            - $ref: '#/components/schemas/WorkspaceEndpoint'
+            - type: "null"
+          description: Set only when `phase=Running`. Null otherwise.
+        message:
+          type: ["string", "null"]
+          description: |
+            Optional human-readable reason for the current phase.
+            Most useful when `phase=Error`.
+        lastEvaluatedAt:
+          type: string
+          format: date-time
+          description: When the reconciler last evaluated this CR.
+
+    Workspace:
+      type: object
+      required: [id, createdAt, spec, status]
+      properties:
+        id:
+          $ref: '#/components/schemas/WorkspaceID'
+        createdAt:
+          type: string
+          format: date-time
+        spec:
+          $ref: '#/components/schemas/WorkspaceSpec'
+        status:
+          $ref: '#/components/schemas/WorkspaceStatus'
+
+    WorkspaceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Workspace'
+
+    CreateWorkspaceRequest:
+      type: object
+      required: [spec]
+      properties:
+        id:
+          $ref: '#/components/schemas/WorkspaceID'
+        spec:
+          $ref: '#/components/schemas/WorkspaceSpec'
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - INVALID_REQUEST
+            - UNAUTHORIZED
+            - NOT_FOUND
+            - CONFLICT
+            - CLASS_NOT_FOUND
+            - QUOTA_EXCEEDED
+            - INTERNAL
+          description: |
+            Machine-readable error category. Stable — clients may
+            switch on this. New values may be added in additive minor
+            spec versions; clients must treat unknown codes as
+            equivalent to `INTERNAL`.
+        message:
+          type: string
+          description: |
+            Human-readable explanation. May change between releases;
+            do not pattern-match.
+        details:
+          type: ["object", "null"]
+          additionalProperties: true
+          description: Optional structured context (field name, RBAC verb, etc.).
+        requestId:
+          type: ["string", "null"]
+          description: |
+            Echoed `X-Request-Id` for trace correlation, or
+            spoke-generated UUID when the client omitted one.

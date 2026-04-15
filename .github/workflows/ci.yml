@@ -40,6 +40,14 @@ jobs:
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.1
+      - name: Lint OpenAPI spec (spoke-v1)
+        run: |
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/work" \
+            -w /work \
+            stoplight/spectral:latest \
+            lint --ruleset .spectral.yaml --fail-severity=warn \
+              api/openapi/spoke-v1.yaml
 
   # ── Tier 1 ─────────────────────────────────────────────────────────────────
   unit:

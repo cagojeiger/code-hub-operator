@@ -1,0 +1,21 @@
+{
+  "id": "alice-personal",
+  "createdAt": "2026-04-15T01:30:00Z",
+  "spec": {
+    "classRef": "standard",
+    "owner": "alice"
+  },
+  "status": {
+    "phase": "Running",
+    "observedGeneration": 1,
+    "desiredReplicas": 1,
+    "readyReplicas": 1,
+    "resolvedClass": "standard",
+    "endpoint": {
+      "scheme": "http",
+      "host": "alice-personal.codehub.svc.cluster.local",
+      "port": 80
+    },
+    "lastEvaluatedAt": "2026-04-15T01:30:34Z"
+  }
+}

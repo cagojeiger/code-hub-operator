@@ -29,6 +29,19 @@ fmt:
 vet:
 	go vet ./...
 
+## ── API spec ────────────────────────────────────────────────────────────────
+# Lint the OpenAPI source of truth via Spectral (Docker, no local install).
+# Run with `make lint-spec`. CI runs the same command.
+.PHONY: lint-spec
+lint-spec:
+	@command -v docker >/dev/null || { echo "docker is required for lint-spec"; exit 1; }
+	docker run --rm \
+		-v $(CURDIR):/work \
+		-w /work \
+		stoplight/spectral:latest \
+		lint --ruleset .spectral.yaml --fail-severity=warn \
+			api/openapi/spoke-v1.yaml
+
 ## ── Tier 1: Unit tests (no external deps) ──────────────────────────────────
 .PHONY: test
 test:

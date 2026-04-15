@@ -1,0 +1,8 @@
+{
+  "code": "CLASS_NOT_FOUND",
+  "message": "CodeHubWorkspaceClass \"standard\" not found",
+  "details": {
+    "classRef": "standard"
+  },
+  "requestId": "7f2a3c41-9b6e-4ac8-8a17-2d3e9f0b1c5a"
+}
