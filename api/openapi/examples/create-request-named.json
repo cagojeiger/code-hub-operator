@@ -1,0 +1,10 @@
+{
+  "id": "alice-personal",
+  "spec": {
+    "classRef": "standard",
+    "owner": "alice",
+    "env": {
+      "EDITOR_THEME": "dark"
+    }
+  }
+}

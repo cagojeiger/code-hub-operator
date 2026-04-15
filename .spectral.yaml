@@ -1,0 +1,7 @@
+extends:
+  - "spectral:oas"
+
+# Spectral's default OpenAPI ruleset is the right baseline; no project-
+# specific overrides yet. When the spec evolves we may tighten or relax
+# specific rules here.
+rules: {}
