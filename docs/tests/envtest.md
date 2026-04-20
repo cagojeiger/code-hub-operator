@@ -65,6 +65,23 @@ Unit tier 가 우회하는 "진짜 API server 동작" 을 검증한다.
 - `Status().Update(cr)` 호출이 `spec` 을 건드리지 않는지 확인
 - fake 는 이 구분을 흉내 내지만 실제 API server 는 `/status` 엔드포인트를 분리 처리한다.
 
+### 6. Class 기본값 머지가 실제 API 서버 경로에서 동작하는가
+
+`TestEnvtest_ClassDefaultsInheritedByWorkspace`
+- `CodeHubWorkspaceClass`를 생성하고, Workspace는 `classRef` + instance 필드만 설정
+- 기대:
+  - Deployment가 Class에서 상속한 image/ports/resources를 사용
+  - status에 `resolvedClass`가 기록됨
+
+### 7. 누락된 ClassRef가 상태에 정확히 반영되는가
+
+`TestEnvtest_MissingClassRefIsReportedAsError`
+- 존재하지 않는 `classRef`로 Workspace 생성 후 reconcile
+- 기대:
+  - `phase=Error`
+  - `ClassResolved=False`
+  - reason=`ClassNotFound`
+
 ## 어떻게 동작하나
 
 `internal/controller/envtest_test.go` 의 `TestMain` 이 한 번만 환경을 기동한다:

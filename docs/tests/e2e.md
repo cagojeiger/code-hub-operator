@@ -26,16 +26,17 @@ Unit / Envtest 가 만질 수 없는 영역:
 
 ### Phase A — Scale-up from create
 
-1. `CodeHubWorkspace` CR 적용 (image: `nginx:alpine`, idleTimeoutSeconds: 60, minReplicas: 0, maxReplicas: 1)
-2. 기대: 리컨사일러가 Redis 에 키 없음을 보고 `isIdle=false` → `desired=maxReplicas=1` 로 판단
-3. Deployment 생성, replicas=1, Pod 스케줄링 → image pull → Ready
-4. `kubectl wait --for=condition=Ready pod ...` 로 최대 180초 대기
-5. CR status: `phase=Running`, `desiredReplicas=1`, `readyReplicas=1`, Ready=True
+1. `CodeHubWorkspaceClass` 적용 (`e2e-standard`)
+2. `CodeHubWorkspace` CR 적용 (`classRef: e2e-standard`, `minReplicas: 0`, `maxReplicas: 1`)
+3. 기대: 리컨사일러가 Redis 에 키 없음을 보고 `isIdle=false` → `desired=maxReplicas=1` 로 판단
+4. Deployment 생성, replicas=1, Pod 스케줄링 → image pull → Ready
+5. `kubectl wait --for=condition=Ready pod ...` 로 최대 240초 대기
+6. CR status: `phase=Running`, `desiredReplicas=1`, `readyReplicas=1`, `resolvedClass=e2e-standard`
 
 ### Phase B — Service traffic
 
 1. in-cluster curl Pod 를 spawn (`curlimages/curl`)
-2. `http://demo-runtime.demo.svc.cluster.local` 에 GET
+2. `http://demo-workspace.e2e-demo.svc.cluster.local` 에 GET
 3. 기대: `HTTP 200` (nginx default welcome)
 4. Service → Pod 경로가 실제로 동작함을 증명
 

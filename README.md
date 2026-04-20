@@ -7,7 +7,7 @@ store (Redis).
 ## CRD
 
 - Group / Version: `codehub.project-jelly.io/v1alpha1`
-- Kind: `CodeHubWorkspace` (short: `chr`)
+- Kind: `CodeHubWorkspace` (short: `chws`)
 - Scope: Namespaced
 
 Each `CodeHubWorkspace` owns one `Deployment` + one `Service`. The controller
@@ -16,7 +16,8 @@ within `idleTimeoutSeconds`, and to `minReplicas` (0) otherwise. A missing
 last-used value is treated as active so freshly-created runtimes are not
 scaled down on their first reconcile.
 
-See `config/samples/runtime_v1alpha1_codehubworkspace.yaml` for an example CR.
+See `config/samples/codehub_v1alpha1_codehubworkspace.yaml` for an example CR.
+Class defaults are defined by `CodeHubWorkspaceClass` and referenced via `spec.classRef`.
 
 ## Build / test
 
@@ -35,14 +36,14 @@ Tests use `sigs.k8s.io/controller-runtime/pkg/client/fake` and an in-memory
 make install                                                       # install CRD
 make docker-build docker-push IMG=<your-registry>/code-hub-operator:dev
 make deploy                                                        # apply rbac + manager
-kubectl apply -f config/samples/runtime_v1alpha1_codehubworkspace.yaml
+kubectl apply -f config/samples/codehub_v1alpha1_codehubworkspace.yaml
 ```
 
 Runtime state:
 
 ```bash
-kubectl get chr -A
-kubectl describe chr demo-runtime -n demo
+kubectl get chws -A
+kubectl describe chws demo-workspace -n demo
 ```
 
 ## How idle detection works
@@ -52,7 +53,7 @@ observes "meaningful use" (the app, gateway, or a sidecar) writes the
 current Unix epoch seconds to Redis at the key named in `spec.lastUsedKey`:
 
 ```bash
-redis-cli SET runtime:demo:demo-runtime:last_used_at $(date +%s)
+redis-cli SET workspace:demo:demo-workspace:last_used_at $(date +%s)
 ```
 
 Every reconcile (every 30s by default) the operator reads that key, compares
